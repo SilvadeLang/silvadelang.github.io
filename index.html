@@ -500,6 +500,14 @@
     .timeline-item b { color: var(--ice-strong); font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; }
     .timeline-item h3 { margin: .5rem 0 .32rem; font-family: var(--serif); font-size: 1.35rem; font-weight: var(--serif-weight); }
     .timeline-item p { margin: 0; color: #60727c; font-size: .86rem; }
+    /*
+     * 三栏中文统一断在逗号后面（"…年代，" / "…独行猎人，" / "…空轨之间，"），
+     * 所有分辨率和手机端都走这条规则，避免自动折行把词劈开。
+     */
+    .timeline-zh-break::after {
+      content: "\A";
+      white-space: pre;
+    }
     .timeline-en {
       display: block;
       margin-top: .32rem;
@@ -903,17 +911,26 @@
       transition: opacity .26s ease, transform .26s ease;
     }
     .gallery-nav-icon[data-icon="menu"] {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: .2rem;
-    }
-    .gallery-nav-icon[data-icon="menu"] i {
+      /*
+       * 三条横线用一个重复渐变画，三根一样粗、间距完全相等。
+       * 两个关键点：
+       *   1) 不靠三个 <i> + gap 排（每根落在像素网格的位置不同，粗细不匀）；
+       *   2) 周期必须是整数像素（1.5px 线 + 2.5px 空 = 4px），这样三根在屏幕上的
+       *      次像素相位完全一致，抗锯齿的结果也一模一样，不会出现 8/9/7 那种差。
+       * 高度 = 1.5 * 3 + 2.5 * 2 = 9.5px，正好收在最后一根的底边。
+       */
       display: block;
       width: 1.05rem;
-      height: 1px;
-      background: currentColor;
+      height: 9.5px;
+      background-image: repeating-linear-gradient(
+        to bottom,
+        currentColor 0 1.5px,
+        transparent 1.5px 4px
+      );
+      background-repeat: no-repeat;
+      background-size: 100% 100%;
     }
+    .gallery-nav-icon[data-icon="menu"] i { display: none; }
     .gallery-nav-icon[data-icon="back"] {
       display: grid;
       place-items: center;
@@ -1883,6 +1900,39 @@
       height: auto;
       opacity: .92;
     }
+    /*
+     * 页面最末尾的版权声明：中文一行、英文一行，浅灰小字压在页脚下面。
+     * 桌面版每一页都是一屏，社交页就是最后一屏，所以这条在这一屏里绝对定位、
+     * 钉在页面最底端（见下面 @media (min-width: 801px) 那段）；手机端是长滚动，
+     * 它本来就是最后一个元素，保持正常文档流即可。
+     */
+    .site-legal {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: .3rem 1.4rem;
+      margin: 0;
+      color: #7b8d97;
+      font-size: .68rem;
+      line-height: 1.7;
+      letter-spacing: .01em;
+    }
+    .site-legal-en { color: #6e818c; }
+    @media (min-width: 801px) {
+      /*
+       * 钉底：左右留白和上下留白都跟着 .section 的 padding 走，
+       * max-width + margin auto 让它的宽度和 .section-inner 对齐，
+       * 这样这行字和上面的标题、社媒卡片是同一条竖线。
+       */
+      .social .site-legal {
+        position: absolute;
+        left: clamp(1.3rem, 6vw, 6rem);
+        right: clamp(1.3rem, 6vw, 6rem);
+        bottom: clamp(1rem, 2.6vh, 1.9rem);
+        max-width: 1250px;
+        margin: 0 auto;
+      }
+    }
 
     .reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .7s ease; }
     .reveal.is-visible { opacity: 1; transform: none; }
@@ -1917,16 +1967,20 @@
       .topbar-menu-toggle.is-tapping,
       .topbar-menu-toggle[aria-expanded="true"] { color: var(--ice); }
       .topbar-menu-bars {
+        /*
+         * 和相册目录的三横同一套画法：整数周期（1.5px 线 + 2.5px 空 = 4px），
+         * 三根落在同样的次像素相位上，粗细一致。
+         */
         display: block;
         width: 1.15rem;
-        height: .72rem;
-        background-image:
-          linear-gradient(currentColor, currentColor),
-          linear-gradient(currentColor, currentColor),
-          linear-gradient(currentColor, currentColor);
-        background-size: 100% 1px;
-        background-position: 0 0, 0 50%, 0 100%;
+        height: 9.5px;
+        background-image: repeating-linear-gradient(
+          to bottom,
+          currentColor 0 1.5px,
+          transparent 1.5px 4px
+        );
         background-repeat: no-repeat;
+        background-size: 100% 100%;
       }
       .topbar-menu {
         position: absolute;
@@ -2269,6 +2323,13 @@
         gap: .8rem;
       }
       .footer-signature { width: 8.2rem; }
+      /* 版权声明跟着页脚一起右对齐，中英各占一行 */
+      .site-legal {
+        flex-direction: column;
+        align-items: flex-end;
+        gap: .25rem;
+        text-align: right;
+      }
       .home-return {
         right: 1rem;
         bottom: 1rem;
@@ -2574,15 +2635,6 @@
       html.is-wide-screen .timeline-item p {
         font-size: .95rem;
         line-height: 1.46;
-      }
-      /*
-       * 高分辨率 16:9（2K / 4K）：赫罗斯加德这栏的中文正好压在折行线上，
-       * 让它断在"独行猎人，"的逗号后，不在词中间劈开；带鱼屏这行本来就是一行，
-       * 不参与（1080p / 平板也不动）。
-       */
-      html.is-highres-screen .timeline-zh-break::after {
-        content: "\A";
-        white-space: pre;
       }
       html.is-wide-screen .timeline-item b { font-size: .82rem; }
 
@@ -2943,7 +2995,7 @@
             <div class="timeline-item">
               <b>01 / Ice Age</b>
               <h3>冰川时代</h3>
-              <p>在剑齿虎尚未消失的年代，白色身影沿着冰原的风向移动。<span class="timeline-en">Before the sabretooths vanished, a white figure moved with the wind across the icefields.</span></p>
+              <p><span class="timeline-zh-break">在剑齿虎尚未消失的年代，</span>白色身影沿着冰原的风向移动。<span class="timeline-en">Before the sabretooths vanished, a white figure moved with the wind across the icefields.</span></p>
             </div>
             <div class="timeline-item timeline-story-trigger" role="button" tabindex="0" data-story-trigger="icefield" aria-label="打开《古老冰原的守望者》全文">
               <span class="story-trigger-cta" aria-hidden="true">READ ARCHIVE<svg class="arrow-ne" viewBox="0 0 12 12" focusable="false"><path d="M3.4 8.6 8.6 3.4M4.9 3.4h3.7v3.7"/></svg></span>
@@ -2955,7 +3007,7 @@
               <span class="story-trigger-cta" aria-hidden="true">READ ARCHIVE<svg class="arrow-ne" viewBox="0 0 12 12" focusable="false"><path d="M3.4 8.6 8.6 3.4M4.9 3.4h3.7v3.7"/></svg></span>
               <b>03 / Helyon</b>
               <h3>赫利昂</h3>
-              <p>未来城市的高楼与空轨之间，横刀成为穿越霓虹的第二道影子。<span class="timeline-en">Between future high-rises and skyrails, the long sword becomes a second shadow cutting through neon.</span></p>
+              <p><span class="timeline-zh-break">未来城市的高楼与空轨之间，</span>横刀成为穿越霓虹的第二道影子。<span class="timeline-en">Between future high-rises and skyrails, the long sword becomes a second shadow cutting through neon.</span></p>
             </div>
           </div>
         </div>
@@ -3133,6 +3185,10 @@
               <img class="footer-signature" src="assets/silvade-signature.png" alt="Silvade 签名" width="600" height="328" loading="lazy" decoding="async">
             </span>
           </footer>
+          <p class="site-legal">
+            <span>作品版权归作者所有，仅作展示，禁止转载/商用。</span>
+            <span class="site-legal-en">All works remain the property of their authors. Display only — reposting and commercial use are prohibited.</span>
+          </p>
         </div>
       </section>
     </main>
@@ -3321,8 +3377,11 @@
             /* 封面（02）是胸像特写：桌面端卡片更扁，取景往下带一点，别把头顶切掉 */
             stackFocusWide: "50% 36%",
             credits: [
-              /* 01 是最左边那版立绘：连冰焰一起框住，放大到人物居中（再大就会切到头顶 / 脚） */
-              { artist: "小耶熊", focus: "0% 50%", zoom: 1.3, zoomOrigin: "0% 23%" },
+              /*
+               * 01 的缩略图本身就是从总表最右侧裁出来的那版立绘（2026-09-13 换的新图，
+               * 645x1000），人物已经在正中，不用再偏移或放大，居中显示即可。
+               */
+              { artist: "小耶熊" },
               { artist: "Flunky", commissioner: "Karo" },
               /* 03 看右边的白虎 */
               { artist: "Stardog", commissioner: "Karo", focus: "94% 50%" },
@@ -3709,6 +3768,29 @@
           card.append(stack, meta);
           galleryRails.sets.append(card);
         });
+
+        /*
+         * 首图预取：有些相册的第 1 张图不参与第一层堆叠（stackStart > 1），
+         * 但第二层最左边那一格永远是它。别的缩略图靠堆叠封面已经进了缓存，
+         * 只有这张要等一次新请求，打开第二层时就会看到最左边空着、最后才补上。
+         * 这里等浏览器空闲时用低优先级把它悄悄拉一次，不跟首屏（字体 / 首页视频）抢带宽。
+         */
+        const prefetchFirstTiles = () => {
+          fursuitSets.forEach((set) => {
+            if (set.comingSoon === true || set.count === 0) return;
+            const stackStart = Math.max(1, Math.min(set.count, Number(set.stackStart) || 1));
+            if (stackStart < 2) return;
+            const preload = new Image();
+            preload.decoding = "async";
+            if ("fetchPriority" in preload) preload.fetchPriority = "low";
+            preload.src = photoPath(set.id, 1, "thumbs");
+          });
+        };
+        if ("requestIdleCallback" in window) {
+          window.requestIdleCallback(prefetchFirstTiles, { timeout: 2600 });
+        } else {
+          window.setTimeout(prefetchFirstTiles, 1400);
+        }
 
         /* 目录列表与堆叠卡片共用同一份数据，相册变多时自动跟着长 */
         galleryIndexList.replaceChildren();
@@ -4505,10 +4587,16 @@
             const frame = document.createElement("span");
             frame.className = "gallery-tile-frame";
             const image = document.createElement("img");
+            /*
+             * 头两格不等滚动就开始拉：这一层是打开相册的瞬间就要看的，
+             * 交给懒加载会让最左边那格先空一下再补上。
+             * 这几个属性要在 src 之前写好，浏览器才会按新优先级取图。
+             */
+            image.loading = index <= 2 ? "eager" : "lazy";
+            image.decoding = "async";
+            if (index === 1 && "fetchPriority" in image) image.fetchPriority = "high";
             image.src = photoPath(set.id, index, "thumbs");
             image.alt = credit.title || `${set.title} · 第 ${index} 张`;
-            image.loading = "lazy";
-            image.decoding = "async";
             frame.append(image);
             const body = document.createElement("span");
             body.className = "gallery-tile-body";
@@ -4552,10 +4640,21 @@
           tile.dataset.galleryPhoto = String(index);
           tile.style.setProperty("--i", String(index - 1));
           const image = document.createElement("img");
+          /*
+           * 前几格直接拉：这一层一打开就要看，懒加载会让左边几格先空一下。
+           * 第 1 格再加一档优先级，并提前解码，避免"图到了才开始画"的那一下卡顿。
+           * 这几个属性要在 src 之前写好，浏览器才会按新优先级取图。
+           */
+          image.loading = index <= 3 ? "eager" : "lazy";
+          image.decoding = "async";
+          if (index === 1 && "fetchPriority" in image) image.fetchPriority = "high";
+          if (index === 1) {
+            image.addEventListener("load", () => {
+              if (typeof image.decode === "function") image.decode().catch(() => {});
+            }, { once: true });
+          }
           image.src = photoPath(set.id, index, "thumbs");
           image.alt = `${set.title} · 第 ${index} 张`;
-          image.loading = "lazy";
-          image.decoding = "async";
           if (credit && credit.focus) image.style.objectPosition = credit.focus;
           /* zoom 是倍数，zoomOrigin 是"围绕画面里的哪个点放大"（默认正中） */
           if (credit && credit.zoom) {
