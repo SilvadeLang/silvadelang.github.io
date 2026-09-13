@@ -7,12 +7,16 @@
   <!-- 不希望被搜索引擎收录：只加 noindex，不用 robots.txt 屏蔽抓取（不然爬虫看不到这行） -->
   <meta name="robots" content="noindex, nofollow">
   <title>Silvade / 雪线档案</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="preload" as="image" href="assets/icefield-dialog.jpg">
   <link rel="preload" as="image" href="assets/neon-dialog.jpg">
   <link rel="preload" as="image" href="assets/qq-qrcode.jpg">
   <!--
     自托管字体：两个字重轴变量字体，已按站点实际用到的字符裁成子集，
     先 preload 两个中文字体（Inter 体积小，跟着 CSS 一起发现就行）。
+    2026-09-13 曾短暂退回设备本地字体，观感不如自托管这版，当天改回。
   -->
   <link rel="preload" href="assets/fonts/silvade-serif-sc.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/silvade-sans-sc.woff2" as="font" type="font/woff2" crossorigin>
@@ -47,6 +51,20 @@
       font-weight: 100 900;
       font-style: normal;
       font-display: swap;
+    }
+    @font-face {
+      /*
+       * 同一份 Inter，只接管"英文标点"这几个码点：引号、撇号、破折号、省略号。
+       * 中文宋体里这些字符是全角字格（引号宽整整 1em、撇号占一整格），放在英文里
+       * 就像中文标点；交给 Inter 之后就恢复成正常的西文半角标点。
+       * 字母不受影响：英文正文的字体栈里它只排在标点这一档，其余字符仍走宋体衬线。
+       */
+      font-family: "Inter Punctuation";
+      src: url("assets/fonts/silvade-inter.woff2") format("woff2");
+      font-weight: 100 900;
+      font-style: normal;
+      font-display: swap;
+      unicode-range: U+0022, U+0027, U+2013-2014, U+2018-2019, U+201C-201D, U+2026;
     }
     :root {
       --ink: #071017;
@@ -177,6 +195,9 @@
       color: var(--ice);
       font-weight: 800;
     }
+    /* 三横总目录：手机端专用，桌面端一律隐藏 */
+    .topbar-menu-toggle,
+    .topbar-menu { display: none; }
 
     .hero {
       position: relative;
@@ -691,6 +712,13 @@
       transition: opacity .24s ease, transform .24s ease;
     }
     .story-copy.is-active { display: block; }
+    /*
+     * 英文正文：标点交给 Inter（半角西文），字母保持宋体的拉丁部分。
+     * 没有这一条的话，英文里的 “ ” 和 ’ 会借用中文字体的全角字格，看着就是中文引号。
+     */
+    .story-dialog-body .story-copy[lang="en"] {
+      font-family: "Inter Punctuation", var(--serif);
+    }
     /* 切中英文时：正文和标题同一个节拍先淡出、再淡入 */
     .story-dialog-body.is-switching .story-copy {
       opacity: 0;
@@ -1171,7 +1199,12 @@
     .gallery-shell[data-layout="wallpaper"] .gallery-grid-rail {
       grid-template-rows: none;
       align-items: start;
-      grid-auto-columns: clamp(17rem, 30vw, 27rem);
+      /*
+       * 大屏（2K / 4K / 带鱼屏）上卡片原来又小又贴在顶部，下面空一大截。
+       * 宽度改由脚本按可视高度算出来写进 --wall-tile-w（见 syncWallFit），
+       * 居中也是脚本用 padding-top 落的；其余分辨率还是原来的写法。
+       */
+      grid-auto-columns: var(--wall-tile-w, clamp(17rem, 30vw, 27rem));
       gap: 1rem 1.2rem;
     }
     .gallery-shell[data-layout="wallpaper"] {
@@ -1307,7 +1340,8 @@
     }
 
     /*
-     * 总览页：第二层右上角的 OVERVIEW 按钮 + 覆盖整个相册视口的缩略图网格。
+     * 总览页：第二层右上角的圆形按钮（只有一个四方块图标，不写字、不带外框）
+     * + 覆盖整个相册视口的缩略图网格。
      * 只有配置里写了 overview: true 的 set 才会出现（目前是动态壁纸），
      * 点总览里的任意一张，直接跳到第二层对应的那张卡片。
      */
@@ -1319,24 +1353,23 @@
       transform: translateY(-50%);
       display: none;
       align-items: center;
-      gap: .42rem;
-      padding: .38rem .72rem;
-      border: 1px solid rgba(181, 210, 225, .3);
-      border-radius: 999px;
+      justify-content: center;
+      width: 2.2rem;
+      height: 2.2rem;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
       background: rgba(238, 243, 246, .06);
       color: var(--ice);
       font: inherit;
-      font-size: .6rem;
-      font-weight: 700;
-      letter-spacing: .14em;
       cursor: pointer;
-      transition: border-color .22s ease, background .22s ease, color .22s ease;
+      transition: background .22s ease, color .22s ease;
     }
-    /* 用四个小方块拼一个总览图标 */
+    /* 正圆里放一个四宫格图标（四块小方块，Windows 那种），不是一个整方块 */
     .gallery-overview-toggle::before {
       content: "";
-      width: .6rem;
-      height: .6rem;
+      width: .66rem;
+      height: .66rem;
       background-image:
         linear-gradient(currentColor, currentColor),
         linear-gradient(currentColor, currentColor),
@@ -1347,13 +1380,11 @@
       background-repeat: no-repeat;
     }
         .gallery-overview-toggle:focus-visible {
-    border-color: var(--ice-strong);
     background: rgba(112, 215, 239, .16);
     color: #fff;
     }
     @media (hover: hover) {
       html:not(.is-touch-input) .gallery-overview-toggle:hover {
-      border-color: var(--ice-strong);
       background: rgba(112, 215, 239, .16);
       color: #fff;
       }
@@ -1361,8 +1392,8 @@
     .gallery-shell[data-overview="true"][data-level="grid"] .gallery-overview-toggle {
       display: inline-flex;
     }
-    /* 按钮占了右上角，提示行相应缩短，别撞在一起 */
-    .gallery-shell[data-overview="true"] .gallery-hint { right: 7.6rem; }
+    /* 按钮占了右上角，提示行相应缩短，别撞在一起（按钮现在是 2.2rem 的圆） */
+    .gallery-shell[data-overview="true"] .gallery-hint { right: 3.4rem; }
 
     .gallery-overview {
       position: absolute;
@@ -1864,15 +1895,88 @@
       * { -webkit-tap-highlight-color: transparent; }
       .topnav { display: none; }
       /*
+       * 三横总目录：灰条右侧的按钮 + 向下展开的跳转面板。
+       * 按钮不加外框，只有三条横线；展开时三横变天蓝，面板从按钮下方推出来。
+       */
+      .topbar-menu-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.75rem;
+        height: 2.75rem;
+        margin: -.4rem -.45rem -.4rem 0;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--paper);
+        cursor: pointer;
+        /* 灰条整条是"无操作"，这里单独把按钮放回可点状态 */
+        pointer-events: auto;
+        transition: color .2s ease;
+      }
+      .topbar-menu-toggle.is-tapping,
+      .topbar-menu-toggle[aria-expanded="true"] { color: var(--ice); }
+      .topbar-menu-bars {
+        display: block;
+        width: 1.15rem;
+        height: .72rem;
+        background-image:
+          linear-gradient(currentColor, currentColor),
+          linear-gradient(currentColor, currentColor),
+          linear-gradient(currentColor, currentColor);
+        background-size: 100% 1px;
+        background-position: 0 0, 0 50%, 0 100%;
+        background-repeat: no-repeat;
+      }
+      .topbar-menu {
+        position: absolute;
+        top: calc(100% - .35rem);
+        right: clamp(1.3rem, 4vw, 4.5rem);
+        z-index: 3;
+        display: flex;
+        flex-direction: column;
+        min-width: 11.5rem;
+        padding: .45rem .3rem;
+        border: 1px solid rgba(181, 210, 225, .22);
+        border-radius: .95rem;
+        background: rgba(9, 17, 24, .97);
+        box-shadow: 0 18px 42px rgba(0, 0, 0, .45);
+        color: var(--paper);
+        font-size: .68rem;
+        letter-spacing: .16em;
+        text-transform: uppercase;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-.55rem);
+        transition: opacity .24s ease, transform .24s ease, visibility .24s;
+        pointer-events: none;
+      }
+      .topbar-menu.is-open {
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+        pointer-events: auto;
+      }
+      .topbar-menu a {
+        padding: .62rem .85rem;
+        border-radius: .62rem;
+        font-weight: 700;
+        transition: color .18s ease, background .18s ease;
+      }
+      .topbar-menu a.is-active { color: var(--ice); }
+      /*
        * 手机端顶部灰条：整条自己接住触摸。
        * 光靠脚本拦 click 不够——iOS 在最顶端那一条还会走触摸态激活、坐标也可能和
        * 手指位置对不上，结果上一屏伸进这条带子的可点区域（比如 READ ARCHIVE 卡）
        * 照样被点开。让 .topbar 自己成为命中目标，事件就到不了后面的内容了。
-       * 灰条里在手机上没有任何要点的东西（导航在手机端本来就是隐藏的），
+       * 灰条里只有右侧三横总目录要能点（按钮和它展开的面板在下面单独放回 auto），
        * 系统状态栏 / 灵动岛那一下是 Safari 的原生回顶，属于浏览器层，这里不碰。
-       */
+      */
       .topbar { pointer-events: auto; }
       .topbar > * { pointer-events: none; }
+      /* 灰条里只有三横总目录要能点：按钮本身，以及展开后的面板 */
+      .topbar > .topbar-menu-toggle { pointer-events: auto; }
+      .topbar > .topbar-menu.is-open { pointer-events: auto; }
       .desktop-break { display: none; }
       .hero { min-height: max(720px, 100svh); }
       /*
@@ -2000,7 +2104,7 @@
       }
       .gallery-hint { top: 1.7rem; left: 3.6rem; font-size: .6rem; }
       /*
-       * 手机端提示行几乎占满整行，OVERVIEW 按钮挪到它下面靠右，
+       * 手机端提示行几乎占满整行，圆形总览按钮挪到它下面靠右，
        * 并给第二层多一点顶部留白，按钮和第一排卡片不会叠在一起。
        */
       .gallery-shell[data-overview="true"] .gallery-hint { right: 1rem; }
@@ -2009,7 +2113,8 @@
         top: 3.1rem;
         transform: none;
         right: .35rem;
-        padding: .46rem .78rem;
+        width: 2.35rem;
+        height: 2.35rem;
       }
       .gallery-shell[data-overview="true"] .gallery-grid-rail { padding-top: 5.9rem; }
       .gallery-overview { padding: .8rem .75rem .85rem; }
@@ -2156,11 +2261,11 @@
         opacity: .9;
         transform: none;
       }
-      .footer { flex-direction: column; }
-      /* 手机端页脚是上下排：签名跟着第二行文字走，靠左对齐 */
+      /* 手机端页脚是上下排：标语、归档说明、签名一条右边缘对齐（跟桌面端右列一致） */
+      .footer { flex-direction: column; text-align: right; }
       .footer-sign {
-        align-items: flex-start;
-        text-align: left;
+        align-items: flex-end;
+        text-align: right;
         gap: .8rem;
       }
       .footer-signature { width: 8.2rem; }
@@ -2303,12 +2408,17 @@
       }
 
       .lore {
+        /*
+         * 标题的上边距做成变量：高分辨率大屏（2K / 4K）要跟委托页一样再往下让一档，
+         * 让几个大页的标题落在同一高度上。
+         */
+        --lore-pad-top: 5.4rem;
         align-items: stretch;
-        padding-top: 5.4rem;
+        padding-top: var(--lore-pad-top);
         padding-bottom: .3rem;
       }
       .lore .section-inner {
-        height: calc(100svh - 5.7rem);
+        height: calc(100svh - var(--lore-pad-top) - .3rem);
         min-height: 0;
         display: grid;
         grid-template-rows: auto auto auto minmax(0, 1fr);
@@ -2316,6 +2426,10 @@
         position: relative;
         padding-top: 0;
         padding-bottom: 0;
+      }
+      /* 高分辨率 16:9 大屏：标题下移一档，和委托页 / 兽装页的标题位置对齐 */
+      html.is-highres-screen .lore {
+        --lore-pad-top: clamp(5.4rem, 13vh, 8.2rem);
       }
       .lore .section-heading {
         margin-top: 0;
@@ -2327,14 +2441,29 @@
         font-size: calc(clamp(1.85rem, 3.7vw, 3.8rem) * var(--lore-fit, 1));
         line-height: 1.08;
       }
+      /* 高分辨率大屏：故事页大标题放大到和委托页同一号字（仍是两行，行高保持 1.08） */
+      html.is-highres-screen .lore .section-heading h2 {
+        font-size: calc(clamp(2.35rem, 4.7vw, 4.6rem) * var(--lore-fit, 1));
+      }
       .lore-grid {
         min-height: 0;
         align-items: start;
+        /*
+         * 正文那一列往右拓一点：右侧属性表是绝对定位（right: 0），不占网格列，
+         * 所以这里放宽的只是正文的行长，表格位置不动。
+         */
+        grid-template-columns: minmax(0, 1.44fr) minmax(13rem, .56fr);
         gap: clamp(1.6rem, 5vw, 5.2rem);
       }
       .story {
-        font-size: calc(clamp(.92rem, 1.08vw, 1.08rem) * var(--lore-fit, 1));
+        /* 高分辨率下一整页只有这些字，原来偏小、下方空一大块：字号整体上调一档 */
+        font-size: calc(clamp(1rem, 1.22vw, 1.26rem) * var(--lore-fit, 1));
         line-height: calc(1.58 - (1 - var(--lore-fit, 1)) * 1.1);
+        max-width: min(57rem, 100%);
+      }
+      /* 高分辨率大屏：行距再松一档，整块正文不至于挤在一起 */
+      html.is-highres-screen .story {
+        line-height: calc(1.74 - (1 - var(--lore-fit, 1)) * 1.25);
       }
       .story p {
         margin-bottom: calc(.42rem * var(--lore-fit, 1));
@@ -2353,12 +2482,34 @@
         margin-top: .6rem;
         margin-bottom: 0;
       }
+      /*
+       * 高分辨率大屏：切语言按钮从标题行里拿出来，钉在属性表正上方一点点。
+       * 位置由脚本按属性表顶边算出来（--lore-btn-top），不再孤零零挂在右上角。
+       */
+      html.is-wide-screen .lang-toggle {
+        position: absolute;
+        right: 0;
+        top: var(--lore-btn-top, 4.6rem);
+        align-self: auto;
+        margin-top: 0;
+        margin-bottom: 0;
+      }
       .fact-list {
         position: absolute;
         top: clamp(5rem, 12vh, 6.2rem);
         right: 0;
         width: min(30rem, 32%);
         transform: none;
+      }
+      /*
+       * 大屏（高分辨率 16:9 + 带鱼屏）：属性表不再钉在「离标题固定多远」上，
+       * 改成和正文块顶边对齐，
+       * 两者处在同一条高度带上（位置由脚本写进 --lore-band-top）。
+       */
+      html.is-wide-screen .fact-list {
+        top: var(--lore-band-top, 5.4rem);
+        /* dl 自带 1em 外边距，会把表格再压下去一截，这里归零，位置完全由脚本算 */
+        margin-top: 0;
       }
       .fact {
         padding: calc(.6rem * var(--lore-fit-fact, 1)) 0;
@@ -2368,7 +2519,12 @@
         position: absolute;
         left: 0;
         right: 0;
-        top: clamp(26.5rem, 58vh, 31rem);
+        /*
+         * 三栏不再按固定 top 落位：原来上限把高分辨率屏卡在页面中段，下面空一大块。
+         * 改成贴底 + 一段随画幅伸缩的留白，屏越高三栏越靠下，矮屏自动回到安全位置。
+         */
+        top: auto;
+        bottom: clamp(.8rem, 3vh, 3rem);
         margin-top: 0;
         transform: none;
       }
@@ -2378,12 +2534,65 @@
       }
       .timeline-item h3 {
         margin: .2rem 0 .12rem;
-        font-size: 1.16rem;
+        font-size: 1.3rem;
       }
       .timeline-item p {
-        font-size: .78rem;
-        line-height: 1.36;
+        font-size: .86rem;
+        line-height: 1.4;
       }
+      .timeline-item b { font-size: .74rem; }
+
+      /*
+       * 带鱼屏（超宽比例）的正文和属性表单独特调一档：展示区宽到 2500+ 之后，
+       * 正文列按 57rem 收着、表格也窄，中间空出一大块，字在这块屏上也偏小。
+       * 这里把正文列 / 表格往两边拓、字号和行距各加一档（2K / 4K 的窄版比例正好，
+       * 不参与这几条）；下面的三栏则是所有大屏一起加大、抬高。
+       */
+      html.is-wide-screen:not(.is-highres-screen) .story {
+        font-size: calc(clamp(1.06rem, 1.3vw, 1.42rem) * var(--lore-fit, 1));
+        line-height: calc(1.76 - (1 - var(--lore-fit, 1)) * 1.25);
+        max-width: min(68rem, 100%);
+      }
+      html.is-wide-screen:not(.is-highres-screen) .quote {
+        font-size: calc(1.06rem * var(--lore-fit, 1));
+      }
+      html.is-wide-screen:not(.is-highres-screen) .fact-list {
+        width: min(34rem, 30%);
+      }
+      html.is-wide-screen:not(.is-highres-screen) .fact {
+        padding: calc(.66rem * var(--lore-fit-fact, 1)) 0;
+        font-size: calc(.9rem * var(--lore-fit-fact, 1));
+      }
+      /*
+       * 三栏（高分辨率 16:9 + 带鱼屏都算）：字号上一档，整块往上抬一点，
+       * 底部留白收窄，和页面里其它放大过的字号配套。
+       */
+      html.is-wide-screen .timeline {
+        bottom: clamp(1.2rem, 5.4vh, 4.8rem);
+      }
+      html.is-wide-screen .timeline-item h3 { font-size: 1.42rem; }
+      html.is-wide-screen .timeline-item p {
+        font-size: .95rem;
+        line-height: 1.46;
+      }
+      /*
+       * 高分辨率 16:9（2K / 4K）：赫罗斯加德这栏的中文正好压在折行线上，
+       * 让它断在"独行猎人，"的逗号后，不在词中间劈开；带鱼屏这行本来就是一行，
+       * 不参与（1080p / 平板也不动）。
+       */
+      html.is-highres-screen .timeline-zh-break::after {
+        content: "\A";
+        white-space: pre;
+      }
+      html.is-wide-screen .timeline-item b { font-size: .82rem; }
+
+      /*
+       * 正文块整体下沉：三栏贴底之后，空白会全堆在正文和三栏之间。
+       * 这里按实测量的余量往下让一半（数值由脚本写进 --lore-shift），
+       * 空白就分成"标题下方"和"正文下方"两半，整页分布更匀。
+       * 只挪正文：用 margin 而不是 transform，免得右侧属性表跟着换定位参照、一起往下跑。
+       */
+      .lore-grid .story { margin-top: var(--lore-shift, 0px); }
             @media (hover: hover) {
         html:not(.is-touch-input) .timeline-story-trigger:hover {
         background: rgba(138, 211, 239, .12);
@@ -2620,7 +2829,6 @@
     }
     .gallery-overview-toggle:active,
     .gallery-overview-toggle.is-tapping {
-      border-color: var(--ice-strong);
       background: rgba(112, 215, 239, .16);
       color: #fff;
     }
@@ -2636,21 +2844,24 @@
     }
 
     /*
-     * 带鱼屏（超宽比例）专属：中间展示区放宽到屏宽的 76%，整页的字号 / 控件按同一比例跟着放大。
-     * 基准是 2560 宽（21:9 常见的 2560×1080）——那台上量出来的观感最正，
-     * 再宽的屏就整页等比放大：--uw-scale 由脚本按「屏宽 ÷ 2560、屏高 ÷ 1080 取小的那个」算，
-     * 上限 1.4，保证大屏上字号、箭头不会显得比小屏还小。
-     * 判定见脚本里的 isUltraWideScreen()：物理屏幕 ≥ 2.05:1（21:9 / 32:9），
-     * 或浏览器窗口本身已是超宽比例。普通 16:9 / 16:10、iPad、手机不加这个 class，版式不动。
+     * 大屏专属（带鱼屏和高分辨率屏共用一套）：中间展示区放宽到屏宽的 76%，
+     * 整页的字号 / 控件按同一比例跟着放大。
+     * 缩放基准分两种：带鱼屏沿用 2560×1080（4.2 在那台上调出的观感，不再动）；
+     * 高分辨率 16:9 大屏（2K / 4K）以 1920×1080 为基准整页等比放大、上限 2.0，
+     * 让它们的字号和 1080p 屏观感一致，不再是"字小、留白大"。
+     * --wide-scale 由脚本按「屏宽 ÷ 基准宽、屏高 ÷ 1080 取小的那个」算。
+     * 判定见脚本里的 isWideScreen()：物理屏幕 ≥ 2.05:1（21:9 / 32:9 带鱼屏），
+     * 或视口宽 ≥ 2000px 的高分辨率大屏（2K / 4K，16:9 也算）。
+     * 1920×1080 及以下、iPad、手机不加这个 class，版式保持原样。
      */
-    html.is-ultrawide {
+    html.is-wide-screen {
       /* 全站尺寸几乎都写成 rem，改根字号等于整页等比缩放 */
-      font-size: calc(16px * var(--uw-scale, 1));
+      font-size: calc(16px * var(--wide-scale, 1));
     }
-    html.is-ultrawide .hero-content,
-    html.is-ultrawide .section-inner {
-      /* 下限仍是原来的 1250px；上限跟着 --uw-scale（2560 宽时正好 1946px） */
-      width: min(clamp(1250px, 76vw, 2900px), 100%, calc(var(--uw-scale, 1) * 1946px));
+    html.is-wide-screen .hero-content,
+    html.is-wide-screen .section-inner {
+      /* 下限仍是原来的 1250px；上限跟着 --wide-scale（2560 宽时正好 1946px） */
+      width: min(clamp(1250px, 76vw, 2900px), 100%, calc(var(--wide-scale, 1) * 1946px));
     }
 
   </style>
@@ -2663,6 +2874,19 @@
         <span>Silvade / 雪线档案</span>
       </div>
       <nav class="topnav" aria-label="主导航">
+        <a href="#lore">STORY</a>
+        <a href="#works">COMMISIONS</a>
+        <a href="#suit">FURSUIT</a>
+        <a href="#elsewhere">SOCIAL LINKS</a>
+      </nav>
+      <!--
+        手机端专用：灰条右侧的三横"总目录"按钮，点开下拉出和桌面导航同一套跳转项。
+        桌面端这两个元素都是 display: none（见 CSS），仍然只用右上角的 topnav。
+      -->
+      <button class="topbar-menu-toggle" type="button" data-topbar-menu-toggle aria-label="打开总目录" aria-expanded="false" aria-controls="topbar-menu">
+        <span class="topbar-menu-bars" aria-hidden="true"></span>
+      </button>
+      <nav class="topbar-menu" id="topbar-menu" data-topbar-menu aria-label="页面目录" aria-hidden="true">
         <a href="#lore">STORY</a>
         <a href="#works">COMMISIONS</a>
         <a href="#suit">FURSUIT</a>
@@ -2725,7 +2949,7 @@
               <span class="story-trigger-cta" aria-hidden="true">READ ARCHIVE<svg class="arrow-ne" viewBox="0 0 12 12" focusable="false"><path d="M3.4 8.6 8.6 3.4M4.9 3.4h3.7v3.7"/></svg></span>
               <b>02 / Hrosgaard</b>
               <h3>赫罗斯加德</h3>
-              <p>北方林海与雪原之间的独行猎人，循着风、兽迹与冰层下的微响穿越北境。<span class="timeline-en">A lone hunter between northern forests and snowfields, crossing the North by wind, tracks, and the faint sounds beneath the ice.</span></p>
+              <p><span class="timeline-zh-break">北方林海与雪原之间的独行猎人，</span>循着风、兽迹与冰层下的微响穿越北境。<span class="timeline-en">A lone hunter between northern forests and snowfields, crossing the North by wind, tracks, and the faint sounds beneath the ice.</span></p>
             </div>
             <div class="timeline-item timeline-story-trigger" role="button" tabindex="0" data-story-trigger="helyon" aria-label="打开《未眠都市》全文">
               <span class="story-trigger-cta" aria-hidden="true">READ ARCHIVE<svg class="arrow-ne" viewBox="0 0 12 12" focusable="false"><path d="M3.4 8.6 8.6 3.4M4.9 3.4h3.7v3.7"/></svg></span>
@@ -2782,8 +3006,8 @@
                 </p>
               </div>
 
-              <!-- 总览页：只有配置 overview: true 的 set（动态壁纸）会显示这个按钮 -->
-              <button class="gallery-overview-toggle" type="button" data-gallery-overview-toggle aria-expanded="false" aria-controls="commissions-overview-panel">OVERVIEW</button>
+              <!-- 总览页：只有配置 overview: true 的 set（动态壁纸）会显示这个按钮（圆形图标，不写字） -->
+              <button class="gallery-overview-toggle" type="button" data-gallery-overview-toggle aria-label="打开总览" title="打开总览" aria-expanded="false" aria-controls="commissions-overview-panel"></button>
               <div class="gallery-overview" id="commissions-overview-panel" data-gallery-overview aria-hidden="true">
                 <div class="gallery-overview-head">
                   <p class="gallery-overview-title">Album overview</p>
@@ -2904,7 +3128,8 @@
           <footer class="footer">
             <span>Designed for a quiet, blue-edged world.</span>
             <span class="footer-sign">
-              <span>Silvade / Snowline Archive · Temporary visual prototype</span>
+              <!-- 最近更新日期：以后每次改完站点顺手把这里改成当天（日/月/年） -->
+              <span>Last updated 13/09/2026</span>
               <img class="footer-signature" src="assets/silvade-signature.png" alt="Silvade 签名" width="600" height="328" loading="lazy" decoding="async">
             </span>
           </footer>
@@ -3658,7 +3883,15 @@
         const paddingBottom = parseFloat(styles.paddingBottom || "0") || 0;
         const rowHeight = (rail.clientHeight - paddingTop - paddingBottom - rowGap) / 2;
         if (rowHeight <= 0) return;
-        const width = Math.max(96, Math.min(260, rowHeight * 0.75));
+        /*
+         * 列宽上限以前写死 260px：行高跟着屏幕长高、列宽却卡住，4K 上缩略图会被拉成
+         * 260×694 的细长条。现在上限乘上宽屏系数（--wide-scale）：2K / 4K 重新锁回 3:4，
+         * 带鱼屏不套这条（那档的观感已定，维持 260px）。
+         */
+        const wideScale = wideScreenMode() === "highres"
+          ? Math.max(1, parseFloat(document.documentElement.style.getPropertyValue("--wide-scale")) || 1)
+          : 1;
+        const width = Math.max(96, Math.min(260 * wideScale, rowHeight * 0.75));
         rail.style.setProperty("--gallery-tile-width", `${width}px`);
       };
 
@@ -4193,6 +4426,11 @@
           if (level === "sets") syncStackFit();
           /* 回到第二层：缩略图会重播一次入场动画，这段时间吸附照旧先按住 */
           if (level === "grid") holdGridSnapDuringTileIntro();
+          /* 第二层刚显示出来才好量尺寸：动态壁纸的放大 + 居中在这里重算 */
+          if (level === "grid") {
+            syncWallFit();
+            window.setTimeout(syncWallFit, 620);
+          }
           /* 这一层刚显示出来，先把头几张解码好，第一下横滑就不会卡 */
           warmRailImages(galleryRails[level], level === "detail" ? 3 : 6);
         });
@@ -4514,15 +4752,29 @@
       /* 每层箭头一次翻动的数量：第一层 2 组相册，第二层 4 张，第三层 1 张
          set 里可以用 steps 覆盖（Live Wallpapers 的第二层一次翻 2 张） */
       const gallerySteps = { sets: 2, grid: 4, detail: 1 };
-      const stepFor = (level) =>
-        (gallerySet && gallerySet.steps && gallerySet.steps[level]) || gallerySteps[level] || 1;
+      /* 一屏能完整放下几个（含间距）：把「一次翻 N 个」压到视口装得下的范围 */
+      const visibleCount = (rail) => {
+        const first = rail && rail.firstElementChild;
+        if (!first) return 1;
+        const styles = window.getComputedStyle(rail);
+        const gap = parseFloat(styles.columnGap || "0") || 0;
+        const unit = first.getBoundingClientRect().width + gap;
+        if (!unit) return 1;
+        return Math.max(1, Math.floor((rail.clientWidth + gap) / unit));
+      };
+      const stepFor = (level, rail) => {
+        const base =
+          (gallerySet && gallerySet.steps && gallerySet.steps[level]) || gallerySteps[level] || 1;
+        if (base <= 1 || !rail) return base;
+        return Math.min(base, visibleCount(rail));
+      };
       const nudgeGallery = (direction) => {
         /* 总览开着时箭头翻总览网格（一行 4 张），不是底下的横排 */
         const rail = galleryOverviewOpen ? galleryOverviewGrid : galleryRails[galleryLevel];
         if (!rail) return;
         const step = galleryOverviewOpen
           ? overviewScrollStep()
-          : galleryStep(rail) * stepFor(galleryLevel);
+          : galleryStep(rail) * stepFor(galleryLevel, rail);
         /* 触摸设备用手写的那套缓动（原生 smooth 在 iPad 上又短又生硬） */
         const nudgeBy = railNudgeHandles.get(rail);
         if (nudgeBy && nudgeBy(direction * step)) return;
@@ -4567,38 +4819,52 @@
       }, { passive: false });
 
       /*
-       * 带鱼屏判定：物理屏幕比例 ≥ 2.05:1（21:9 ≈ 2.37、32:9 ≈ 3.55），
-       * 或者浏览器窗口本身已经是超宽比例（窗口被拉得很扁时也算）。
-       * 只在这两种情况下给 <html> 加 is-ultrawide：
-       * 第一层堆叠卡走"两张并排"的宽度上限，中间展示区也跟着变宽；
-       * 普通 16:9 / 16:10、iPad 竖屏、手机都拿不到这个 class，版式保持原样。
+       * 大屏判定（4.3：把带鱼屏那套等比放大机制扩到高分辨率屏）：
+       *   1) 物理屏幕比例 ≥ 2.05:1（21:9 ≈ 2.37、32:9 ≈ 3.55 的带鱼屏），
+       *      或浏览器窗口本身已经是超宽比例（窗口被拉得很扁时也算）；
+       *   2) 视口宽 ≥ 2000px 的高分辨率大屏（2560×1440、4K 这类，16:9 也算）——
+       *      默认 1250px 展示区在这些屏上只占一小半，字小、留白大。
+       * 命中就给 <html> 加 is-wide-screen：展示区放宽到 76vw，整页按 --wide-scale 等比放大；
+       * 两类屏的缩放基准不同（见下面），免得动到已经调好的带鱼屏观感。
+       * 1920×1080 及以下、iPad 竖屏、手机都拿不到这个 class，版式保持原样。
        */
-      const isUltraWideScreen = () => {
+      const wideScreenMode = () => {
         const screenW = window.screen ? window.screen.width : 0;
         const screenH = window.screen ? window.screen.height : 0;
-        if (screenH > 0 && screenW / screenH >= 2.05) return true;
-        return window.innerHeight > 0 && window.innerWidth / window.innerHeight >= 2.45;
+        if (screenH > 0 && screenW / screenH >= 2.05) return "ultrawide";
+        if (window.innerHeight > 0 && window.innerWidth / window.innerHeight >= 2.45) return "ultrawide";
+        if (window.innerWidth >= 2000) return "highres";
+        return "";
       };
-      const syncUltraWideClass = () => {
-        const ultraWide = isUltraWideScreen();
-        document.documentElement.classList.toggle("is-ultrawide", ultraWide);
-        if (!ultraWide) {
-          document.documentElement.style.removeProperty("--uw-scale");
+      const syncWideScreenClass = () => {
+        const mode = wideScreenMode();
+        document.documentElement.classList.toggle("is-wide-screen", Boolean(mode));
+        /*
+         * 故事页单独认「高分辨率 16:9」这一档：2K / 4K 要调标题落位和表格高度，
+         * 带鱼屏（ultrawide）已经调好，维持现状不动，所以另给一个 class。
+         */
+        document.documentElement.classList.toggle("is-highres-screen", mode === "highres");
+        if (!mode) {
+          document.documentElement.style.removeProperty("--wide-scale");
           return;
         }
         /*
-         * 以 2560×1080 为基准算放大倍数：宽高各算一次取小的（保证一屏装得下），
-         * 再夹在 1 ~ 1.4 之间——比基准小的窗口不缩，超宽屏（32:9 这种矮屏）也不硬撑大。
+         * 宽高各算一次倍数取小的（保证一屏装得下），再夹在 1 和上限之间：
+         *   - 带鱼屏：基准 2560×1080、上限 1.4，沿用 4.2 在那台上调出的参数；
+         *   - 高分辨率 16:9：基准 1920×1080、上限 2.0——2560 屏放 1.33 倍、4K 放 2 倍，
+         *     字号观感和 1080p 屏对齐，不再"字小、留白大"。
          */
+        const baseWidth = mode === "ultrawide" ? 2560 : 1920;
+        const maxScale = mode === "ultrawide" ? 1.4 : 2;
         const scale = Math.max(1, Math.min(
-          window.innerWidth / 2560,
+          window.innerWidth / baseWidth,
           window.innerHeight / 1080,
-          1.4
+          maxScale
         ));
-        document.documentElement.style.setProperty("--uw-scale", scale.toFixed(3));
+        document.documentElement.style.setProperty("--wide-scale", scale.toFixed(3));
       };
-      syncUltraWideClass();
-      window.addEventListener("resize", syncUltraWideClass, { passive: true });
+      syncWideScreenClass();
+      window.addEventListener("resize", syncWideScreenClass, { passive: true });
 
       /*
        * 方案 C：第一层堆叠卡的自适应尺寸（桌面版式专用）。
@@ -4619,8 +4885,12 @@
           fursuitGallery.classList.remove("has-fit-stack");
           fursuitGallery.style.removeProperty("--stack-card-w");
           fursuitGallery.style.removeProperty("--stack-card-h");
+          setsRail.style.removeProperty("align-items");
+          setsRail.style.removeProperty("padding-top");
           return;
         }
+        /* 上一轮居中时写进去的 padding 会污染这一轮的量值，先清掉再量 */
+        setsRail.style.removeProperty("padding-top");
         const styles = window.getComputedStyle(setsRail);
         const gap = parseFloat(styles.columnGap) || 0;
         const availH = setsRail.clientHeight
@@ -4631,21 +4901,94 @@
         const ratio = fursuitGallery.dataset.shape === "landscape" ? 3 / 2 : 3 / 4;
         const twoUp = (availW - gap) / 2;
         let height = Math.min(availH, availW / ratio);
-        /* 展示区真的宽（带鱼屏全屏就是这种）才套两栏上限；窗中窗把窗口拉窄时不参与 */
-        if (isUltraWideScreen() && availW >= 1500 && twoUp > 0) {
+        /*
+         * 两栏上限（4.3 起改成普适规则）：展示区宽到能并排放两个「够宽」的卡片
+         * （每张至少 400px）就套这条。以前只在「带鱼屏 + 宽度 ≥1500」时套，
+         * 于是窗口一高、或屏幕比例偏方，卡片就按可视高度撑大（宽 = 高 × 1.5），
+         * 一屏只剩一张多一点，点箭头翻两格时中间那个堆叠会被整组跳过去。
+         * 窄屏（iPad 竖屏 / 折叠屏内屏，两栏每张不到 400px）不套，维持原来的大卡。
+         */
+        if (twoUp >= 400) {
           height = Math.min(height, twoUp / ratio);
         }
+        /*
+         * 大屏（2K / 4K / 带鱼屏）上第一层卡片原来几乎撑满整屏，横向只能看到一张多一点，
+         * 堆叠显得过大。这里统一缩到可视高度的 87%，上下留白分匀；笔记本及以下分辨率
+         * 不进这段，保持原来的大小。
+         */
+        const wideScreen = document.documentElement.classList.contains("is-wide-screen");
+        if (wideScreen) height = Math.min(height, availH * .87);
         fursuitGallery.style.setProperty("--stack-card-w", (height * ratio).toFixed(2) + "px");
         fursuitGallery.style.setProperty("--stack-card-h", height.toFixed(2) + "px");
         fursuitGallery.classList.add("has-fit-stack");
+        /*
+         * 卡片矮于展示区时让它垂直居中：padTop 取"上下留白相等"的位置，
+         * 但不能小于 CSS 里给左上角圆形按钮留出的那 4.1rem。
+         * 以前这里写的是 alignItems = center，rail 是带滚动的 flex 容器，
+         * 写上去其实不生效（卡片一直贴在顶部），所以改成直接写 padding-top。
+         */
+        const basePadTop = parseFloat(styles.paddingTop) || 0;
+        let padTop = basePadTop;
+        if (wideScreen) padTop = Math.max(basePadTop, (setsRail.clientHeight - height) / 2);
+        setsRail.style.paddingTop = padTop.toFixed(1) + "px";
+      };
+
+      /*
+       * 动态壁纸第二层（单行横排大卡）的自适应：
+       * 大屏（2K / 4K / 带鱼屏）上卡片原来贴在展示区顶部、下面空一大截，
+       * 左右两个圆形箭头却是相对展示区居中的，看上去就是"图片偏高"。
+       * 这里按可视高度把卡片放大到约 56%（不会小于原来的宽度），再把
+       * padding-top 设成上下留白相等，让图片和左右箭头落在同一条中线上。
+       * 手机 / 平板 / 笔记本都不进这段，保持原来的排布。
+       */
+      const syncWallFit = () => {
+        const rail = galleryRails.grid;
+        if (!rail) return;
+        const wide = document.documentElement.classList.contains("is-wide-screen");
+        if (
+          fursuitGallery.dataset.layout !== "wallpaper" ||
+          window.matchMedia("(max-width: 800px)").matches ||
+          !wide
+        ) {
+          rail.style.removeProperty("--wall-tile-w");
+          rail.style.removeProperty("padding-top");
+          return;
+        }
+        const tile = rail.querySelector(".gallery-tile");
+        if (!tile) return;
+        /* 先清掉上一轮的值，量的才是"自然尺寸" */
+        rail.style.removeProperty("--wall-tile-w");
+        rail.style.removeProperty("padding-top");
+        /*
+         * 用 offsetHeight 而不是 getBoundingClientRect：第二层的卡片有入场动画
+         * （translateY + scale），矩形会被动画里的缩放带着走，量出来偏小。
+         */
+        const frame = tile.querySelector(".gallery-tile-frame");
+        const naturalTileH = tile.offsetHeight;
+        const naturalFrameH = frame ? frame.offsetHeight : 0;
+        const clientH = rail.clientHeight;
+        if (!(naturalTileH > 40) || !(naturalFrameH > 20) || !(clientH > 120)) return;
+        /* 文字区 + 间隙：放大卡片宽度时这一截不变，从目标高度里先扣掉 */
+        const overhead = naturalTileH - naturalFrameH;
+        const targetH = clientH * .56;
+        if (targetH > naturalTileH + 4) {
+          const frameH = targetH - overhead;
+          const width = frameH * 16 / 9;
+          rail.style.setProperty("--wall-tile-w", width.toFixed(1) + "px");
+        }
+        const tileH = tile.offsetHeight;
+        rail.style.paddingTop = Math.max(0, (clientH - tileH) / 2).toFixed(1) + "px";
       };
       window.addEventListener("resize", syncGalleryControls, { passive: true });
       window.addEventListener("resize", syncStackFit, { passive: true });
+      window.addEventListener("resize", syncWallFit, { passive: true });
       buildGallerySets();
       syncGalleryControls();
       syncStackFit();
+      syncWallFit();
       /* 首屏字体 / 视频加载完高度才算稳，再对一次 */
       window.setTimeout(syncStackFit, 600);
+      window.setTimeout(syncWallFit, 620);
 
       /*
        * 第三层灯箱的双指缩放：只放大图片本身，页面和 UI 都不跟着变大。
@@ -5004,8 +5347,11 @@
      */
     const loreSection = document.querySelector(".lore");
     const loreStoryNode = loreSection ? loreSection.querySelector(".story") : null;
-    const loreTimelineNode = loreSection ? loreSection.querySelector(".timeline") : null;
-    const loreFactNode = loreSection ? loreSection.querySelector(".fact-list") : null;
+      const loreGridNode = loreSection ? loreSection.querySelector(".lore-grid") : null;
+      const loreTimelineNode = loreSection ? loreSection.querySelector(".timeline") : null;
+      const loreFactNode = loreSection ? loreSection.querySelector(".fact-list") : null;
+      /* 正文最下面那行灰字引用（视觉重量轻，居中时要排除，见下面的 syncLoreFit） */
+      const loreQuoteNode = loreSection ? loreSection.querySelector(".quote") : null;
     const loreFitSteps = [1, .965, .93, .895, .86, .825, .79];
     const loreFitGap = 12;
     let loreFitKey = "";
@@ -5022,9 +5368,18 @@
       if (!window.matchMedia("(min-width: 801px)").matches) {
         loreSection.style.removeProperty("--lore-fit");
         loreSection.style.removeProperty("--lore-fit-fact");
+        loreSection.style.removeProperty("--lore-shift");
+        loreSection.style.removeProperty("--lore-band-top");
+        loreSection.style.removeProperty("--lore-btn-top");
         loreFitKey = "";
         return;
       }
+      /*
+       * 大屏（高分辨率 16:9 + 带鱼屏）走"正文块居中、属性表和按钮跟着落位"这套。
+       * 这里读 <html> 上的 class（由 syncWideScreenClass 写），不直接调那个函数，
+       * 两者不在同一个作用域里。
+       */
+      const wideLore = document.documentElement.classList.contains("is-wide-screen");
       const key = [
         window.innerWidth, window.innerHeight, loreLanguage,
         document.fonts ? document.fonts.status : ""
@@ -5052,17 +5407,103 @@
           - (node.getBoundingClientRect().bottom - revealShift(node));
       loreSection.style.removeProperty("--lore-fit");
       loreSection.style.removeProperty("--lore-fit-fact");
+      /* 量之前先归零，否则每次同步都会把上次的下沉量算进去、越缩越靠下 */
+      loreSection.style.setProperty("--lore-shift", "0px");
       const storyScale = loreFitScaleFor((step) => {
         loreSection.style.setProperty("--lore-fit", String(step));
         return clearance(loreStoryNode);
       });
       setVar("--lore-fit", storyScale);
-      if (!loreFactNode) return;
-      const factScale = loreFitScaleFor((step) => {
-        loreSection.style.setProperty("--lore-fit-fact", String(step));
-        return clearance(loreFactNode);
-      });
-      setVar("--lore-fit-fact", factScale);
+      /*
+       * 字号定下来之后定位置。
+       *   - 高分辨率 16:9 大屏（2K / 4K）：正文块在「标题底 → 三栏顶」这段空间里垂直居中，
+       *     属性表和切语言按钮跟着正文顶边落位，三者处在同一条高度带上（切英文重算一次）；
+       *   - 其它桌面 / 平板：沿用老做法，把正文下方的余量让一半给下沉位移，
+       *     空白上下分匀（余量很小时不动，免得贴住三栏）。
+       * 注意这里必须用 margin 位移（--lore-shift），不能用 transform，
+       * 否则右侧属性表会跟着换定位参照、一起往下跑。
+       */
+      const headingNode = loreSection.querySelector(".section-heading");
+      const innerNode = loreSection.querySelector(".section-inner");
+      const innerTop = innerNode ? innerNode.getBoundingClientRect().top : 0;
+      const storyRect = loreStoryNode.getBoundingClientRect();
+      const storyTop = storyRect.top - revealShift(loreStoryNode);
+      const timelineTop = loreTimelineNode.getBoundingClientRect().top;
+      /*
+       * 正文最下面那行灰字引用（.quote）视觉重量轻，量"正文实到哪儿"时把它刨掉：
+       * 不然整块正文会被它顶上去，右侧表格跟着落到偏低的位置、看着比正文低。
+       */
+      let quoteBlock = 0;
+      if (loreQuoteNode) {
+        const quoteStyle = window.getComputedStyle(loreQuoteNode);
+        quoteBlock = loreQuoteNode.getBoundingClientRect().height
+          + (parseFloat(quoteStyle.marginTop) || 0);
+      }
+      const storyBodyHeight = Math.max(0, storyRect.height - quoteBlock);
+      const bandTop = headingNode
+        ? headingNode.getBoundingClientRect().bottom - revealShift(headingNode)
+        : storyTop;
+      let shift = 0;
+      if (wideLore) {
+        /*
+         * 居中按"标题底 → 三栏顶"这段空间算：正文块自然落位比标题底还低一点
+         * （正文栅格自己有一小段上边距），所以这里按目标顶边减实际顶边求位移，
+         * 不能直接取 room 的一半。
+         */
+        const room = timelineTop - bandTop - storyBodyHeight;
+        if (room > 0) shift = Math.max(0, bandTop + room * 0.5 - storyTop);
+      } else if (loreGridNode) {
+        const slack = timelineTop - loreGridNode.getBoundingClientRect().bottom;
+        if (slack > 8) shift = slack * 0.5;
+      }
+      if (shift > .5) loreSection.style.setProperty("--lore-shift", shift.toFixed(1) + "px");
+      else loreSection.style.removeProperty("--lore-shift");
+
+      if (!wideLore) {
+        loreSection.style.removeProperty("--lore-band-top");
+        loreSection.style.removeProperty("--lore-btn-top");
+        return;
+      }
+
+      /*
+       * 属性表的落位：不和正文顶边简单平齐，而是和正文块互相居中——
+       * 表格比正文高一截时，顶边平齐会把表格底边拖到正文下面，看着就"表比文字低"。
+       * 这里按两者高度差把表格往上抬一半，只认正文高度（灰字上面已经刨掉）。
+       */
+      const storyInInner = storyTop + shift - innerTop;
+      const factHeightBefore = loreFactNode ? loreFactNode.getBoundingClientRect().height : 0;
+      const bandOffset = (factHeight) =>
+        Math.max(0, storyInInner - (factHeight - storyBodyHeight) * .5);
+      let finalTopInInner = loreFactNode && factHeightBefore > 0
+        ? bandOffset(factHeightBefore)
+        : Math.max(0, storyInInner);
+      loreSection.style.setProperty("--lore-band-top", finalTopInInner.toFixed(1) + "px");
+
+      /*
+       * 表格跟着正文下沉之后才定字号档位：不然它按原来的高位量出"下面很空"，
+       * 下沉后会离三栏太近。
+       */
+      if (loreFactNode) {
+        const factScale = loreFitScaleFor((step) => {
+          loreSection.style.setProperty("--lore-fit-fact", String(step));
+          return clearance(loreFactNode);
+        });
+        setVar("--lore-fit-fact", factScale);
+        /* 档位一变表格高度跟着变，按新高度把"互相居中"再对一次 */
+        const factHeightAfter = loreFactNode.getBoundingClientRect().height;
+        if (Math.abs(factHeightAfter - factHeightBefore) > .5) {
+          finalTopInInner = bandOffset(factHeightAfter);
+          loreSection.style.setProperty("--lore-band-top", finalTopInInner.toFixed(1) + "px");
+        }
+      }
+
+      /* 切语言按钮：底边压在表格顶边上方一点点（再抬高一档，别贴着表格） */
+      if (loreToggle) {
+        const rootFont = parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+        const toggleHeight = loreToggle.getBoundingClientRect().height;
+        const btnTop = finalTopInInner - toggleHeight - rootFont * 1.4;
+        loreSection.style.setProperty("--lore-btn-top", Math.max(0, btnTop).toFixed(1) + "px");
+      }
     };
 
     loreToggle?.addEventListener("click", () => {
@@ -5330,7 +5771,33 @@
         .forEach((link) => setSocialPopover(link, true));
     }, { passive: true });
 
-    const navLinks = [...document.querySelectorAll(".topnav a")];
+    /*
+     * 手机端灰条上的三横总目录：点按钮展开，点面板里任一项翻页并收起，
+     * 点面板外面（或按 Esc、转到桌面宽度）自动收起。
+     * 面板里的链接和桌面 topnav 走同一套逻辑（见下面的 navLinks），只是多一步收起。
+     */
+    const topbarMenu = document.querySelector("[data-topbar-menu]");
+    const topbarMenuToggle = document.querySelector("[data-topbar-menu-toggle]");
+    const setTopbarMenu = (open) => {
+      if (!topbarMenu || !topbarMenuToggle) return;
+      topbarMenu.classList.toggle("is-open", open);
+      topbarMenu.setAttribute("aria-hidden", open ? "false" : "true");
+      topbarMenuToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    };
+    topbarMenuToggle?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setTopbarMenu(!topbarMenu.classList.contains("is-open"));
+    });
+    document.addEventListener("click", (event) => {
+      if (!topbarMenu?.classList.contains("is-open")) return;
+      if (topbarMenu.contains(event.target) || topbarMenuToggle.contains(event.target)) return;
+      setTopbarMenu(false);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") setTopbarMenu(false);
+    });
+
+    const navLinks = [...document.querySelectorAll(".topnav a, .topbar-menu a")];
     const pageSections = [...document.querySelectorAll("main > section")];
     const desktopPagerQuery = window.matchMedia("(hover: hover) and (pointer: fine) and (min-width: 801px)");
     let pageTurnLocked = false;
@@ -5509,6 +5976,10 @@
 
     homeReturn?.addEventListener("click", scrollToHome);
     const mobileTopQuery = window.matchMedia("(max-width: 800px)");
+    /* 从手机宽度转到桌面宽度时，三横总目录自动收起（桌面端用的是右上角 topnav） */
+    window.addEventListener("resize", () => {
+      if (!mobileTopQuery.matches) setTopbarMenu(false);
+    }, { passive: true });
     /*
      * 有些触摸设备（iPad、折叠屏的桌面模式）会把 hover 报成可用，
      * 手指点过的按钮就会一直保持天蓝的悬停态。首次触摸时给根元素打个标记，
@@ -5526,6 +5997,7 @@
      * 底色和描边按 CSS 里原有的 transition 渐变复原，不会一直蓝着。
      */
     const TAP_FLASH_SELECTOR = [
+      ".topbar-menu-toggle",
       ".lang-toggle",
       ".story-language",
       ".story-close",
@@ -5579,9 +6051,13 @@
        * 照坐标判断会误伤（页面里自己触发的弹窗就开不了了）。
        */
       if (!event.isTrusted || event.detail === 0) return;
+      /* 灰条里唯一要能点的是三横总目录：按钮本体、以及它下拉出来的面板 */
+      if (event.target.closest?.("[data-topbar-menu-toggle], [data-topbar-menu]")) return;
       const bar = document.querySelector(".topbar");
       const barBottom = bar ? bar.getBoundingClientRect().bottom : 0;
       if (barBottom > 0 && event.clientY <= barBottom) {
+        /* 灰条本身仍然"无操作"，但顺手把开着总目录收起来 */
+        setTopbarMenu(false);
         event.preventDefault();
         event.stopPropagation();
       }
@@ -5593,6 +6069,7 @@
         const targetIndex = pageSections.findIndex((section) => section.id === targetId);
         if (targetIndex < 0) return;
         event.preventDefault();
+        setTopbarMenu(false);
         if (pageTurnLocked) return;
         turnToPage(targetIndex);
       });
