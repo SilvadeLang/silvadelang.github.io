@@ -1344,7 +1344,7 @@
       margin: 0;
       transform: translateY(-50%);
       color: var(--ice);
-      font-size: .66rem;
+      font-size: .72rem;
       letter-spacing: .12em;
     }
     /* 退回第一层时，这行提示向左滑出（而不是直接消失） */
@@ -2412,46 +2412,18 @@
       }
     }
 
+    /*
+     * 矮窗口（桌面浏览器 UI 占得多、可用高 ≤ 820px，以及 iPad 横屏）：
+     * 这里只做两件事——见下面两条注释。原来这块还堆了 19 条针对矮窗口的手调
+     * （section 上下间距、各类大标题、正文行高、三栏字号……），实测早就被后面
+     * 同选择器的规则顶掉了、一条都没生效，2026-09-14 清掉。
+     */
     @media (min-width: 801px) and (max-height: 820px) {
-      .section {
-        padding-top: 3rem;
-        padding-bottom: 3rem;
-      }
-      .lore .section-heading {
-        margin-top: 1.2rem;
-        margin-bottom: 1.4rem;
-      }
-      .section-heading h2 {
-        font-size: clamp(2.25rem, 5vw, 4.2rem);
-      }
-      .lore .section-heading h2 {
-        font-size: clamp(2.05rem, 8vw, 3.4rem);
-        line-height: 1.08;
-      }
-      .fact-list {
-        transform: none;
-      }
-      .story {
-        font-size: 1rem;
-        line-height: 1.78;
-      }
-      .story p {
-        margin-bottom: .8rem;
-      }
-      .quote {
-        margin-top: 1rem;
-        padding: .75rem 1rem;
-      }
-      .timeline {
-        margin-top: 1.4rem;
-        transform: none;
-      }
-      .timeline-item h3 {
-        font-size: 1.16rem;
-      }
-      .timeline-item p {
-        font-size: .8rem;
-      }
+      /* 社交页大标题：原来靠通用 `.section-heading h2` 压到 4.2rem，只对没写专属
+         标题规则的这一页生效（委托页 / 兽装页 / 故事页都有更细的规则）。写成
+         专属选择器，字号和之前逐像素一致，但谁在管这一页一眼能看出来。 */
+      .social .section-heading h2 { font-size: clamp(2.25rem, 5vw, 4.2rem); }
+      /* 第一层堆叠卡标题压一档，短窗口里卡片不至于被标题挤掉 */
       .suit-set-meta strong { font-size: 1.3rem; }
     }
 
@@ -2681,8 +2653,9 @@
         line-height: 1.02;
       }
       .suit .section-heading h2 {
-        font-size: clamp(2.2rem, 4.3vw, 4.1rem);
-        line-height: 1.04;
+        /* 和委托页大标题用同一套字号（原来 4.3vw / 上限 4.1rem，比委托页小一号） */
+        font-size: clamp(2.35rem, 4.7vw, 4.6rem);
+        line-height: 1.02;
       }
       /* 桌面端相册：按钮略上移，上下留白收紧，缩略图随之变大 */
       .gallery-shell .gallery-nav { top: -.3rem; }
@@ -2896,15 +2869,13 @@
     }
 
     /*
-     * 大屏专属（带鱼屏和高分辨率屏共用一套）：中间展示区放宽到屏宽的 76%，
-     * 整页的字号 / 控件按同一比例跟着放大。
-     * 缩放基准分两种：带鱼屏沿用 2560×1080（4.2 在那台上调出的观感，不再动）；
-     * 高分辨率 16:9 大屏（2K / 4K）以 1920×1080 为基准整页等比放大、上限 2.0，
-     * 让它们的字号和 1080p 屏观感一致，不再是"字小、留白大"。
-     * --wide-scale 由脚本按「屏宽 ÷ 基准宽、屏高 ÷ 1080 取小的那个」算。
-     * 判定见脚本里的 isWideScreen()：物理屏幕 ≥ 2.05:1（21:9 / 32:9 带鱼屏），
-     * 或视口宽 ≥ 2000px 的高分辨率大屏（2K / 4K，16:9 也算）。
-     * 1920×1080 及以下、iPad、手机不加这个 class，版式保持原样。
+     * 大屏专属（带鱼屏和高分辨率屏共用同一套）：中间展示区放宽到屏宽的 76%，
+     * 整页字号 / 控件按 --wide-scale 一起放大。
+     * v1.2 换成"两根轴"后，这个 class 由脚本里的 syncWideScreenClass() 决定：
+     * 超宽（屏幕比 ≥ 2.05 或窗口比 ≥ 2.45）一律命中，其余看尺度
+     * scale = min(视口宽 ÷ 1920, 视口高 ÷ 1080)，大于 1 才命中。
+     * --wide-scale 就是这个 scale，夹在 1 和 2 之间（2560×1300 → 1.20、3840×2020 → 1.87）。
+     * 1920×1080 及以下、iPad、手机拿不到这个 class，版式保持原样。
      */
     html.is-wide-screen {
       /* 全站尺寸几乎都写成 rem，改根字号等于整页等比缩放 */
@@ -3181,7 +3152,7 @@
             <span>Designed for a quiet, blue-edged world.</span>
             <span class="footer-sign">
               <!-- 最近更新日期：以后每次改完站点顺手把这里改成当天（日/月/年） -->
-              <span>Last updated 13/09/2026</span>
+              <span>Last updated 14/09/2026 · v1.2</span>
               <img class="footer-signature" src="assets/silvade-signature.png" alt="Silvade 签名" width="600" height="328" loading="lazy" decoding="async">
             </span>
           </footer>
@@ -3966,13 +3937,14 @@
         const rowHeight = (rail.clientHeight - paddingTop - paddingBottom - rowGap) / 2;
         if (rowHeight <= 0) return;
         /*
-         * 列宽上限以前写死 260px：行高跟着屏幕长高、列宽却卡住，4K 上缩略图会被拉成
-         * 260×694 的细长条。现在上限乘上宽屏系数（--wide-scale）：2K / 4K 重新锁回 3:4，
-         * 带鱼屏不套这条（那档的观感已定，维持 260px）。
+         * 列宽上限 260px 是给 1080 那档锁 3:4 用的：行高跟着屏幕长高、列宽却卡死时，
+         * 4K 上缩略图会被拉成细长条。所以非超宽的大屏把上限跟着 --wide-scale 一起放大，
+         * 重新锁回 3:4（2K ≈ 313×421、4K ≈ 486×649）；带鱼屏那档的观感 4.2 已定，
+         * 维持 260px 不动。
          */
-        const wideScale = wideScreenMode() === "highres"
-          ? Math.max(1, parseFloat(document.documentElement.style.getPropertyValue("--wide-scale")) || 1)
-          : 1;
+        const wideScale = wideScreenMode() === "ultrawide"
+          ? 1
+          : Math.max(1, parseFloat(document.documentElement.style.getPropertyValue("--wide-scale")) || 1);
         const width = Math.max(96, Math.min(260 * wideScale, rowHeight * 0.75));
         rail.style.setProperty("--gallery-tile-width", `${width}px`);
       };
@@ -4918,48 +4890,48 @@
       }, { passive: false });
 
       /*
-       * 大屏判定（4.3：把带鱼屏那套等比放大机制扩到高分辨率屏）：
-       *   1) 物理屏幕比例 ≥ 2.05:1（21:9 ≈ 2.37、32:9 ≈ 3.55 的带鱼屏），
-       *      或浏览器窗口本身已经是超宽比例（窗口被拉得很扁时也算）；
-       *   2) 视口宽 ≥ 2000px 的高分辨率大屏（2560×1440、4K 这类，16:9 也算）——
-       *      默认 1250px 展示区在这些屏上只占一小半，字小、留白大。
-       * 命中就给 <html> 加 is-wide-screen：展示区放宽到 76vw，整页按 --wide-scale 等比放大；
-       * 两类屏的缩放基准不同（见下面），免得动到已经调好的带鱼屏观感。
-       * 1920×1080 及以下、iPad 竖屏、手机都拿不到这个 class，版式保持原样。
+       * 自适应缩放，v1.2「两根轴」：
+       *   轴一 · 形态：超宽屏（屏幕比例 ≥ 2.05 或窗口比 ≥ 2.45）单独一档，
+       *     走"展示区锁宽 + 两栏堆叠"那套，观感维持 4.x 调好的样子；
+       *     其余竖屏 / 常规横屏都只由轴二决定大小。
+       *   轴二 · 尺度：scale = min(视口宽 ÷ 1920, 视口高 ÷ 1080)，夹在 1 和 2 之间。
+       *     语义是「1920×1080 为满刻度，比它紧凑的屏一律保持 1 倍」：
+       *       - 1536×703（1080p 开 125% 缩放 + Chrome UI）→ 1 倍，一字不动；
+       *       - 2560×1300（2K）→ 1.20 倍；3840×2020（4K）→ 1.87 倍；
+       *       - 3440×1300（带鱼屏）→ 1.20 倍，和 4.x 已验收的观感一致；
+       *       - 1920×1080 以上才真正开始放大，1920~2000 之间的窗口不再突然跳变。
+       * 命中（超宽 或 scale > 1）就给 <html> 加 is-wide-screen：展示区放宽到 76vw，
+       * 整页按 --wide-scale 等比放大；比基准紧凑的屏拿不到这个 class——1080 基准设备、
+       * iPad、手机都落在这一侧，版式保持原样。
        */
       const wideScreenMode = () => {
         const screenW = window.screen ? window.screen.width : 0;
         const screenH = window.screen ? window.screen.height : 0;
         if (screenH > 0 && screenW / screenH >= 2.05) return "ultrawide";
         if (window.innerHeight > 0 && window.innerWidth / window.innerHeight >= 2.45) return "ultrawide";
-        if (window.innerWidth >= 2000) return "highres";
         return "";
       };
+      /* 轴二：连续缩放系数，1 起、2 封顶（超宽屏也共用同一条曲线） */
+      const wideScaleFactor = () => Math.max(1, Math.min(
+        window.innerWidth / 1920,
+        window.innerHeight / 1080,
+        2
+      ));
       const syncWideScreenClass = () => {
         const mode = wideScreenMode();
-        document.documentElement.classList.toggle("is-wide-screen", Boolean(mode));
+        const scale = wideScaleFactor();
         /*
-         * 故事页单独认「高分辨率 16:9」这一档：2K / 4K 要调标题落位和表格高度，
-         * 带鱼屏（ultrawide）已经调好，维持现状不动，所以另给一个 class。
+         * 「超宽」或「比 1080 基准更大」就进宽屏版式。
+         * 高分辨率 16:9（2K / 4K）另给 is-highres-screen：故事页要调标题落位和
+         * 表格高度；带鱼屏（ultrawide）已经调好，维持现状不动，只拿 is-wide-screen。
          */
-        document.documentElement.classList.toggle("is-highres-screen", mode === "highres");
-        if (!mode) {
+        const wide = Boolean(mode) || scale > 1.0001;
+        document.documentElement.classList.toggle("is-wide-screen", wide);
+        document.documentElement.classList.toggle("is-highres-screen", wide && !mode && scale > 1.0001);
+        if (!wide) {
           document.documentElement.style.removeProperty("--wide-scale");
           return;
         }
-        /*
-         * 宽高各算一次倍数取小的（保证一屏装得下），再夹在 1 和上限之间：
-         *   - 带鱼屏：基准 2560×1080、上限 1.4，沿用 4.2 在那台上调出的参数；
-         *   - 高分辨率 16:9：基准 1920×1080、上限 2.0——2560 屏放 1.33 倍、4K 放 2 倍，
-         *     字号观感和 1080p 屏对齐，不再"字小、留白大"。
-         */
-        const baseWidth = mode === "ultrawide" ? 2560 : 1920;
-        const maxScale = mode === "ultrawide" ? 1.4 : 2;
-        const scale = Math.max(1, Math.min(
-          window.innerWidth / baseWidth,
-          window.innerHeight / 1080,
-          maxScale
-        ));
         document.documentElement.style.setProperty("--wide-scale", scale.toFixed(3));
       };
       syncWideScreenClass();
@@ -4991,63 +4963,50 @@
         /* 上一轮居中时写进去的 padding 会污染这一轮的量值，先清掉再量 */
         setsRail.style.removeProperty("padding-top");
         const styles = window.getComputedStyle(setsRail);
-        const gap = parseFloat(styles.columnGap) || 0;
         const availH = setsRail.clientHeight
           - (parseFloat(styles.paddingTop) || 0)
           - (parseFloat(styles.paddingBottom) || 0);
         const availW = setsRail.clientWidth;
         if (!(availH > 80) || !(availW > 80)) return;
         const ratio = fursuitGallery.dataset.shape === "landscape" ? 3 / 2 : 3 / 4;
-        const twoUp = (availW - gap) / 2;
-        let height = Math.min(availH, availW / ratio);
         /*
-         * 两栏上限（4.3 起改成普适规则）：展示区宽到能并排放两个「够宽」的卡片
-         * （每张至少 400px）就套这条。以前只在「带鱼屏 + 宽度 ≥1500」时套，
-         * 于是窗口一高、或屏幕比例偏方，卡片就按可视高度撑大（宽 = 高 × 1.5），
-         * 一屏只剩一张多一点，点箭头翻两格时中间那个堆叠会被整组跳过去。
-         * 窄屏（iPad 竖屏 / 折叠屏内屏，两栏每张不到 400px）不套，维持原来的大卡。
+         * 卡片高度以 1080 的观感为基准：1080 下卡片占展示区高度的 86%（实测 396 / 460）。
+         * 4.3 曾经为了"一屏一定放得下两个"加过两栏上限（能并排两张 400px 以上就套），
+         * 代价是 2K / 4K 上卡片只剩展示区高度的三分之二，上下各空一百多到两百多 px。
+         * 现在改成按展示区高度自适应放大：一屏放不满两个就放一个，翻页步长另有 stepFor()
+         * 兜底（min(一次翻 N 个, 一屏放得下的个数)），不会再把中间的堆叠整组跳过去。
          */
-        if (twoUp >= 400) {
-          height = Math.min(height, twoUp / ratio);
-        }
-        /*
-         * 大屏（2K / 4K / 带鱼屏）上第一层卡片原来几乎撑满整屏，横向只能看到一张多一点，
-         * 堆叠显得过大。这里统一缩到可视高度的 87%，上下留白分匀；笔记本及以下分辨率
-         * 不进这段，保持原来的大小。
-         */
-        const wideScreen = document.documentElement.classList.contains("is-wide-screen");
-        if (wideScreen) height = Math.min(height, availH * .87);
+        /* 兽装页大标题放大后，堆叠高度再收一点，免得头图和标题显得挤 */
+        const FILL = fursuitGallery.dataset.gallery === "fursuit" ? .82 : .86;
+        const height = Math.min(availH, availW / ratio, setsRail.clientHeight * FILL);
         fursuitGallery.style.setProperty("--stack-card-w", (height * ratio).toFixed(2) + "px");
         fursuitGallery.style.setProperty("--stack-card-h", height.toFixed(2) + "px");
         fursuitGallery.classList.add("has-fit-stack");
         /*
          * 卡片矮于展示区时让它垂直居中：padTop 取"上下留白相等"的位置，
-         * 但不能小于 CSS 里给左上角圆形按钮留出的那 4.1rem。
+         * 但不能小于 CSS 里给左上角圆形按钮留出的那 3.5rem。
          * 以前这里写的是 alignItems = center，rail 是带滚动的 flex 容器，
          * 写上去其实不生效（卡片一直贴在顶部），所以改成直接写 padding-top。
          */
         const basePadTop = parseFloat(styles.paddingTop) || 0;
-        let padTop = basePadTop;
-        if (wideScreen) padTop = Math.max(basePadTop, (setsRail.clientHeight - height) / 2);
+        const padTop = Math.max(basePadTop, (setsRail.clientHeight - height) / 2);
         setsRail.style.paddingTop = padTop.toFixed(1) + "px";
       };
 
       /*
        * 动态壁纸第二层（单行横排大卡）的自适应：
-       * 大屏（2K / 4K / 带鱼屏）上卡片原来贴在展示区顶部、下面空一大截，
-       * 左右两个圆形箭头却是相对展示区居中的，看上去就是"图片偏高"。
-       * 这里按可视高度把卡片放大到约 56%（不会小于原来的宽度），再把
-       * padding-top 设成上下留白相等，让图片和左右箭头落在同一条中线上。
-       * 手机 / 平板 / 笔记本都不进这段，保持原来的排布。
+       * 目标高度以 1080 的观感为基准 —— 1080 下壁纸卡占展示区高度的 74%（实测 327 / 442），
+       * 而大屏上原来只给到 56%，上下各空两百多 px，卡片显得偏小。
+       * 现在统一按 74% 缩放（只放大不缩小），再把 padding-top 设成上下留白相等，
+       * 图片和左右箭头就落在同一条中线上；iPad 下方的多余留白也一并收掉。
+       * 手机版式不进这段（卡片大小另有规则）。
        */
       const syncWallFit = () => {
         const rail = galleryRails.grid;
         if (!rail) return;
-        const wide = document.documentElement.classList.contains("is-wide-screen");
         if (
           fursuitGallery.dataset.layout !== "wallpaper" ||
-          window.matchMedia("(max-width: 800px)").matches ||
-          !wide
+          window.matchMedia("(max-width: 800px)").matches
         ) {
           rail.style.removeProperty("--wall-tile-w");
           rail.style.removeProperty("padding-top");
@@ -5069,7 +5028,15 @@
         if (!(naturalTileH > 40) || !(naturalFrameH > 20) || !(clientH > 120)) return;
         /* 文字区 + 间隙：放大卡片宽度时这一截不变，从目标高度里先扣掉 */
         const overhead = naturalTileH - naturalFrameH;
-        const targetH = clientH * .56;
+        /*
+         * 两个上限取小的：一是 1080 基准的 74%；二是"一屏至少能完整放下两张"——
+         * 卡片再大下去，箭头步长就会被 stepFor() 从翻 2 张压成翻 1 张，
+         * 而壁纸层一次翻两张是定过的行为。
+         */
+        const gap = parseFloat(getComputedStyle(rail).columnGap) || 0;
+        const perTileW = (rail.clientWidth - gap) / 2 - 2;
+        const twoUpH = perTileW * 9 / 16 + overhead;
+        const targetH = Math.min(clientH * .74, twoUpH);
         if (targetH > naturalTileH + 4) {
           const frameH = targetH - overhead;
           const width = frameH * 16 / 9;
