@@ -2081,11 +2081,27 @@
       .suit .section-inner {
         min-height: calc(100lvh - 7rem);
         display: grid;
-        grid-template-rows: auto minmax(0, 1fr);
+        /*
+         * v1.3：第二行的最小值从 0 改成 min-content —— 相册框改用下面那套"钉住位置"的排法后，
+         * 内容高的层（两排缩略图、灯箱）要把 section 撑高，而不是溢出到下一页身上。
+         * 第一层（堆叠矮）时这一行依旧是"标题以下的剩余高度"，居中基准没变。
+         */
+        grid-template-rows: auto minmax(min-content, 1fr);
       }
       .works .gallery-shell,
       .suit .gallery-shell {
         align-self: center;
+      }
+      /*
+       * v1.3 手机端：相册框不再跟着自己的高低居中，而是钉在"第一层（堆叠）居中时的那条位置"上。
+       * 相册框一高（两排缩略图、灯箱），居中会把框顶顶上去，左上角按钮、提示行、总览按钮
+       * 就跟着往上跑，翻层时按钮肉眼可见地跳一下。钉住之后三种层的按钮落在同一条线上。
+       * 位置由脚本量出来写进 --gallery-row-pad（见 syncGalleryRowAnchor）。
+       */
+      .works .gallery-shell.has-row-anchor,
+      .suit .gallery-shell.has-row-anchor {
+        align-self: start;
+        margin-top: var(--gallery-row-pad, 0px);
       }
       /*
        * 委托页 / 兽装页"加长到覆盖 iPhone 16 Pro 整屏"：
@@ -2096,7 +2112,13 @@
        */
       .works,
       .suit {
-        min-height: 100lvh;
+        /*
+         * v1.3：用到 100lvh 之后，工具栏收起那一档确实铺满了，但手指再往上滑一点
+         * （看缩略图第二排、灯箱下半张）下一页的颜色还是会从底边探出来。这里在最大视口
+         * 之上再留 7rem 的余量：相册内容不会跟着往下跑（内容排在内边距里、section 从顶部排），
+         * 多出来的只是本节自己的底色，等于给翻页留了一段缓冲。
+         */
+        min-height: calc(100lvh + 7rem);
       }
       .timeline { grid-template-columns: 1fr; }
       .timeline-item + .timeline-item { padding-left: 0; border-left: 0; border-top: 1px solid var(--line-light); }
@@ -2213,19 +2235,27 @@
       }
       .gallery-hint { top: 1.7rem; left: 3.6rem; font-size: .6rem; }
       /*
-       * 手机端提示行几乎占满整行，圆形总览按钮挪到它下面靠右，
-       * 并给第二层多一点顶部留白，按钮和第一排卡片不会叠在一起。
+       * v1.3 手机端：总览按钮从"提示行下面"挪回提示行右侧、和左上角返回按钮同一条中线
+       * （桌面端本来就是这个排法）。提示行因此要提前收住，不能伸到按钮下面去；
+       * 窄屏上文字被挤到两行也不会和按钮叠在一起。
        */
-      .gallery-shell[data-overview="true"] .gallery-hint { right: 1rem; }
+      .gallery-shell[data-overview="true"] .gallery-hint { right: 3.4rem; }
       .gallery-overview-toggle {
-        /* 桌面端是按中心线对齐提示行的，手机端改成从顶部直接定位 */
-        top: 3.1rem;
+        /*
+         * 左上角圆形按钮（.gallery-nav）在手机端是 top .35rem、直径 2.7rem，中线落在 1.7rem；
+         * 总览按钮直径 2.35rem，要跟它同一条中线就得从 1.7rem 再往上抬半个直径。
+         */
+        top: .525rem;
         transform: none;
         right: .35rem;
         width: 2.35rem;
         height: 2.35rem;
       }
-      .gallery-shell[data-overview="true"] .gallery-grid-rail { padding-top: 5.9rem; }
+      /*
+       * 顶部只剩一行了：缩略图的上边距从"让两行按钮"的 5.9rem 收回 4.1rem，
+       * 和其它相册第二层的留白一致（圆形按钮 + 一行间隙）。
+       */
+      .gallery-shell[data-overview="true"] .gallery-grid-rail { padding-top: 4.1rem; }
       .gallery-overview { padding: .8rem .75rem .85rem; }
       /*
        * 手机端总览是九宫格：一屏 3 行 × 3 列（编号和桌面端一致，先从上到下、再从左往右），
@@ -4552,6 +4582,8 @@
           markGalleryOverviewCurrent();
           /* 回到第一层：层刚显示出来才好量尺寸，顺便把方案 C 的自适应重算一次 */
           if (level === "sets") syncStackFit();
+          /* 按钮行的锚点：第一层顺手校正一次，灯箱那层则去掉锚点（保持居中） */
+          syncGalleryRowAnchor();
           /* 回到第二层：缩略图会重播一次入场动画，这段时间吸附照旧先按住 */
           if (level === "grid") holdGridSnapDuringTileIntro();
           /* 第二层刚显示出来才好量尺寸：动态壁纸的放大 + 居中在这里重算 */
@@ -5160,16 +5192,79 @@
         const tileH = tile.offsetHeight;
         rail.style.paddingTop = Math.max(0, (clientH - tileH) / 2).toFixed(1) + "px";
       };
+      /*
+       * 手机端"按钮行对齐"（v1.3 追加）：
+       * 相册框在"标题以下的剩余高度"里垂直居中，框一高（两排缩略图、灯箱）框顶就被顶上去，
+       * 左上角圆形按钮、提示行、总览按钮跟着往上跑——从第一层翻到第二层按钮会跳一下。
+       * 这里把第一层（堆叠）居中时的框顶位置量出来，写进 --gallery-row-pad，
+       * CSS 里 .has-row-anchor 把相册框改成"钉在这个位置往下排"，
+       * 三种层的按钮、提示行、总览按钮就落在同一条线上了。
+       * 只有第一层显示着的时候才量得到那个框高（其它层是 display:none），
+       * 所以：在第一层时重新量；不在第一层时沿用上次的值，窗口高度变了就按比例跟着变，
+       * 等回到第一层再校正一次。桌面 / 平板（>800px）整段不参与。
+       * 第三层灯箱不参与：灯箱内容（3:4 的大图 + 画师那行）本来就比"标题以下那块高度"高，
+       * 硬按第一层的位置排会把图片和画师那行顶到屏幕外，所以灯箱保持原来的居中。
+       */
+      const galleryRowAnchor = { pad: 0, vh: 0 };
+      const syncGalleryRowAnchor = () => {
+        if (!window.matchMedia("(max-width: 800px)").matches) {
+          fursuitGallery.classList.remove("has-row-anchor");
+          fursuitGallery.style.removeProperty("--gallery-row-pad");
+          galleryRowAnchor.pad = 0;
+          galleryRowAnchor.vh = 0;
+          return;
+        }
+        const inner = fursuitGallery.closest(".section-inner");
+        if (!inner) return;
+        const vh = window.innerHeight || 0;
+        if (galleryLevel === "sets") {
+          /* 第二行的行高就是"标题以下给相册的那块高度"，居中位置由它和相册框高度算出来 */
+          const rows = window.getComputedStyle(inner).gridTemplateRows.split(/\s+/).map(parseFloat);
+          const areaH = rows.length > 1 && Number.isFinite(rows[1]) ? rows[1] : 0;
+          const shellH = fursuitGallery.offsetHeight;
+          if (!(areaH > 80) || !(shellH > 80)) return;
+          /*
+           * 上面这个自然居中值，委托页和兽装页算出来是不一样的（委托页第一层是横版堆叠卡，
+           * 比兽装页的竖版卡矮一大截，居中后框顶压得更低）：402×874 实测委托页 140.6px、兽装页 74.6px，
+           * 也就是同样的标题、同样的展示区，两页的按钮行相差 66px，看着都偏低。
+           * 这里给居中值加一个上限 3.15rem（402 宽的机器上是 50.4px）：高一点的屏两页都会被压到同一档，
+           * 按钮行落在同一条线上；矮屏（如 375×667，展示区装不下竖版卡）自然值本来就小于上限，
+           * 保持原样不额外往上顶。
+           */
+          const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+          const pad = Math.max(0, Math.min((areaH - shellH) / 2, 3.15 * rem));
+          galleryRowAnchor.pad = pad;
+          galleryRowAnchor.vh = vh;
+          fursuitGallery.style.setProperty("--gallery-row-pad", pad.toFixed(1) + "px");
+          fursuitGallery.classList.add("has-row-anchor");
+          return;
+        }
+        /* 第三层灯箱：保持居中（见上面注释） */
+        if (galleryLevel === "detail") {
+          fursuitGallery.classList.remove("has-row-anchor");
+          return;
+        }
+        if (!galleryRowAnchor.pad) return;
+        if (vh && galleryRowAnchor.vh && Math.abs(vh - galleryRowAnchor.vh) > 1) {
+          galleryRowAnchor.pad = Math.max(0, galleryRowAnchor.pad * vh / galleryRowAnchor.vh);
+          galleryRowAnchor.vh = vh;
+          fursuitGallery.style.setProperty("--gallery-row-pad", galleryRowAnchor.pad.toFixed(1) + "px");
+        }
+        fursuitGallery.classList.add("has-row-anchor");
+      };
       window.addEventListener("resize", syncGalleryControls, { passive: true });
       window.addEventListener("resize", syncStackFit, { passive: true });
       window.addEventListener("resize", syncWallFit, { passive: true });
+      window.addEventListener("resize", syncGalleryRowAnchor, { passive: true });
       buildGallerySets();
       syncGalleryControls();
       syncStackFit();
       syncWallFit();
+      syncGalleryRowAnchor();
       /* 首屏字体 / 视频加载完高度才算稳，再对一次 */
       window.setTimeout(syncStackFit, 600);
       window.setTimeout(syncWallFit, 620);
+      window.setTimeout(syncGalleryRowAnchor, 640);
 
       /*
        * 第三层灯箱的双指缩放：只放大图片本身，页面和 UI 都不跟着变大。
