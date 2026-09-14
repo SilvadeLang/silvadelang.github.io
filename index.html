@@ -2292,7 +2292,8 @@
         height: 0;
       }
       .suit .section-heading h2,
-      .works .section-heading h2 { font-size: clamp(2.15rem, 8.4vw, 3.1rem); }
+      .works .section-heading h2,
+      .social .section-heading h2 { font-size: clamp(2.15rem, 8.4vw, 3.1rem); }
       /* 只缩四宫格里的主文字，不要影响弹窗里的列表（弹窗另有字号） */
       .social-link > strong { font-size: 1.35rem; white-space: nowrap; }
       .social-other-list { font-size: .82rem; }
@@ -2414,15 +2415,14 @@
 
     /*
      * 矮窗口（桌面浏览器 UI 占得多、可用高 ≤ 820px，以及 iPad 横屏）：
-     * 这里只做两件事——见下面两条注释。原来这块还堆了 19 条针对矮窗口的手调
+     * 这里只剩一件事——见下面的注释。原来这块还堆了 19 条针对矮窗口的手调
      * （section 上下间距、各类大标题、正文行高、三栏字号……），实测早就被后面
      * 同选择器的规则顶掉了、一条都没生效，2026-09-14 清掉。
+     * 2026-09-14 又撤掉一条：社交页大标题原来被这里单独压到 4.2rem，
+     * 现在社交页跟委托页 / 兽装页共用一套字号（见下面 @media (min-width: 801px)），
+     * 矮窗口里再压一档就和委托页不一致了。
      */
     @media (min-width: 801px) and (max-height: 820px) {
-      /* 社交页大标题：原来靠通用 `.section-heading h2` 压到 4.2rem，只对没写专属
-         标题规则的这一页生效（委托页 / 兽装页 / 故事页都有更细的规则）。写成
-         专属选择器，字号和之前逐像素一致，但谁在管这一页一眼能看出来。 */
-      .social .section-heading h2 { font-size: clamp(2.25rem, 5vw, 4.2rem); }
       /* 第一层堆叠卡标题压一档，短窗口里卡片不至于被标题挤掉 */
       .suit-set-meta strong { font-size: 1.3rem; }
     }
@@ -2656,6 +2656,25 @@
         /* 和委托页大标题用同一套字号（原来 4.3vw / 上限 4.1rem，比委托页小一号） */
         font-size: clamp(2.35rem, 4.7vw, 4.6rem);
         line-height: 1.02;
+      }
+      .social .section-heading h2 {
+        /* 社交页也统一到委托页 / 兽装页那套字号（原来只有通用规则，矮窗口还会被压一档） */
+        font-size: clamp(2.35rem, 4.7vw, 4.6rem);
+        line-height: 1.02;
+      }
+      /*
+       * 社交页内容整体往下沉一点：这一页东西少，内容垂直居中时底部会空出一大截，
+       * 看上去像"没对齐"。margin-top 参与 grid 居中，实际位移是它的一半
+       * （2.4rem~12rem → 1.2rem~6rem）。底部版权小字是绝对定位钉底的，不受影响。
+       */
+      .social .section-inner { margin-top: clamp(2.4rem, 10vh, 12rem); }
+      /*
+       * 特别矮的视口（老笔记本，浏览器 UI 再吃掉一条）里社交页本来就挤，
+       * 内容整体下沉的幅度收一半，免得页脚顶到底部钉底的版权小字。
+       * 写在上面那条规则之后，同样命中时以这条为准。
+       */
+      @media (max-height: 700px) {
+        .social .section-inner { margin-top: clamp(1.2rem, 4vh, 3rem); }
       }
       /* 桌面端相册：按钮略上移，上下留白收紧，缩略图随之变大 */
       .gallery-shell .gallery-nav { top: -.3rem; }
@@ -4968,18 +4987,59 @@
           - (parseFloat(styles.paddingBottom) || 0);
         const availW = setsRail.clientWidth;
         if (!(availH > 80) || !(availW > 80)) return;
-        const ratio = fursuitGallery.dataset.shape === "landscape" ? 3 / 2 : 3 / 4;
         /*
          * 卡片高度以 1080 的观感为基准：1080 下卡片占展示区高度的 86%（实测 396 / 460）。
          * 4.3 曾经为了"一屏一定放得下两个"加过两栏上限（能并排两张 400px 以上就套），
          * 代价是 2K / 4K 上卡片只剩展示区高度的三分之二，上下各空一百多到两百多 px。
-         * 现在改成按展示区高度自适应放大：一屏放不满两个就放一个，翻页步长另有 stepFor()
-         * 兜底（min(一次翻 N 个, 一屏放得下的个数)），不会再把中间的堆叠整组跳过去。
+         * 现在改成按展示区高度自适应放大，翻页步长另有 stepFor() 兜底
+         * （min(一次翻 N 个, 一屏放得下的个数)），不会再把中间的堆叠整组跳过去。
          */
         /* 兽装页大标题放大后，堆叠高度再收一点，免得头图和标题显得挤 */
         const FILL = fursuitGallery.dataset.gallery === "fursuit" ? .82 : .86;
-        const height = Math.min(availH, availW / ratio, setsRail.clientHeight * FILL);
-        fursuitGallery.style.setProperty("--stack-card-w", (height * ratio).toFixed(2) + "px");
+        const targetH = Math.min(availH, setsRail.clientHeight * FILL);
+        let width;
+        let height;
+        if (fursuitGallery.dataset.shape === "landscape") {
+          /*
+           * 委托页第一层（横版堆叠）的尺寸规则，2026-09-14 细化：
+           *   · 卡片高度统一按展示区高度的 86% 走（targetH，上面那条）；
+           *   · 图片可视区（.suit-set-stack，卡内留白是固定的 2.6rem 横向 / 7.1rem 纵向）
+           *     比例自适应在 1.9:1 ~ 7:5 之间 —— 不再被固定 rem 的留白拖到 1.7 甚至更窄；
+           *   · 宽度优先贴着"并排两张"来算（1080 一直是两张，观感最好），但塞两张
+           *     会把图压到 7:5 以下时，就不替两张让路 —— 宁可一屏一张多，也不把图
+           *     裁得又高又窄（所以不写死两张，翻页步长仍由 stepFor() 兜底）。
+           * 换算：内框 = 卡片 - 内边距 → 内框宽 = R × 内框高。
+           */
+          const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+          const insetX = 2.6 * rem; /* 左 .1rem + 右 2.5rem */
+          const insetY = 7.1 * rem; /* 上 2.5rem + 下 4.6rem */
+          const R_MAX = 1.9;
+          const R_MIN = 1.4; /* 7:5，再窄就不替"并排两张"让路了 */
+          const gap = parseFloat(styles.columnGap) || 0;
+          let frameH = Math.max(1, targetH - insetY);
+          const twoUpW = (availW - gap) / 2;
+          let frameW;
+          if ((twoUpW - insetX) / frameH >= R_MIN) {
+            /* 两张并排也不会压到 7:5 以下：贴着两张的宽度，最宽收到 1.9:1 */
+            frameW = Math.min(twoUpW - insetX, R_MAX * frameH);
+          } else {
+            /* 塞两张太窄了：用最窄的 7:5，宽度上随它去（一屏一个多） */
+            frameW = R_MIN * frameH;
+          }
+          /* 硬约束：一张卡也得整个装进展示区；实在放不下就按 7:5 把高度收回来 */
+          const frameWLimit = availW - insetX;
+          if (frameW > frameWLimit) {
+            frameW = frameWLimit;
+            frameH = frameW / R_MIN;
+          }
+          width = frameW + insetX;
+          height = frameH + insetY;
+        } else {
+          const ratio = 3 / 4;
+          height = Math.min(availH, availW / ratio, setsRail.clientHeight * FILL);
+          width = height * ratio;
+        }
+        fursuitGallery.style.setProperty("--stack-card-w", width.toFixed(2) + "px");
         fursuitGallery.style.setProperty("--stack-card-h", height.toFixed(2) + "px");
         fursuitGallery.classList.add("has-fit-stack");
         /*
