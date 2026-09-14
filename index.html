@@ -5004,7 +5004,7 @@
            * 委托页第一层（横版堆叠）的尺寸规则，2026-09-14 细化：
            *   · 卡片高度统一按展示区高度的 86% 走（targetH，上面那条）；
            *   · 图片可视区（.suit-set-stack，卡内留白是固定的 2.6rem 横向 / 7.1rem 纵向）
-           *     比例自适应在 1.9:1 ~ 7:5 之间 —— 不再被固定 rem 的留白拖到 1.7 甚至更窄；
+           *     比例自适应在 1.96:1 ~ 7:5 之间 —— 不再被固定 rem 的留白拖到 1.7 甚至更窄；
            *   · 宽度优先贴着"并排两张"来算（1080 一直是两张，观感最好），但塞两张
            *     会把图压到 7:5 以下时，就不替两张让路 —— 宁可一屏一张多，也不把图
            *     裁得又高又窄（所以不写死两张，翻页步长仍由 stepFor() 兜底）。
@@ -5013,14 +5013,14 @@
           const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
           const insetX = 2.6 * rem; /* 左 .1rem + 右 2.5rem */
           const insetY = 7.1 * rem; /* 上 2.5rem + 下 4.6rem */
-          const R_MAX = 1.9;
+          const R_MAX = 1.96;
           const R_MIN = 1.4; /* 7:5，再窄就不替"并排两张"让路了 */
           const gap = parseFloat(styles.columnGap) || 0;
           let frameH = Math.max(1, targetH - insetY);
           const twoUpW = (availW - gap) / 2;
           let frameW;
           if ((twoUpW - insetX) / frameH >= R_MIN) {
-            /* 两张并排也不会压到 7:5 以下：贴着两张的宽度，最宽收到 1.9:1 */
+            /* 两张并排也不会压到 7:5 以下：贴着两张的宽度，最宽收到 1.96:1 */
             frameW = Math.min(twoUpW - insetX, R_MAX * frameH);
           } else {
             /* 塞两张太窄了：用最窄的 7:5，宽度上随它去（一屏一个多） */
