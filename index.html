@@ -2056,11 +2056,61 @@
       .scroll-cue { display: none; }
       .section-heading, .lore-grid { grid-template-columns: 1fr; }
       .section-heading { gap: 1rem; margin-bottom: 2.5rem; }
+      /*
+       * v1.3 手机端：四个大页的大标题落在同一条横线上（以故事页为准）。
+       * 故事页正文长、把 section 撑得比一屏还高，标题自然落在 内边距 56px + 5vh 的位置；
+       * 委托页 / 兽装页内容短，默认的 align-items:center 会把标题顶到屏幕中间（比故事页低 130px / 50px），
+       * 社媒页则跟着视口高矮上下浮动。下面把这三页改成"从顶部排"+ 同一个 5vh 上边距。
+       */
+      .works,
+      .suit,
+      .social {
+        align-items: start;
+      }
+      .works .section-heading,
+      .suit .section-heading,
+      .social .section-heading {
+        margin-top: clamp(2.4rem, 5vh, 4.6rem);
+      }
+      /*
+       * 委托页 / 兽装页：内容区撑满整屏，相册在"标题以下剩下的高度"里居中。
+       * 标题钉在上面那条线，相册就不会跟着内容多少上下乱跑，底下也不会空出一大块。
+       * min-height 里的 7rem 就是 .section 的上下内边距（手机上固定 3.5rem + 3.5rem）。
+       */
+      .works .section-inner,
+      .suit .section-inner {
+        min-height: calc(100lvh - 7rem);
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+      }
+      .works .gallery-shell,
+      .suit .gallery-shell {
+        align-self: center;
+      }
+      /*
+       * 委托页 / 兽装页"加长到覆盖 iPhone 16 Pro 整屏"：
+       * 100svh 是"地址栏 / 工具栏都露着"时的高度，手指一划 iOS 收起工具栏、可视区变高，
+       * 这两页的底边就会提前露出来（深色委托页底下露出一条浅色兽装页）。
+       * 100lvh 按"工具栏收起"的最大视口算，正好铺满整屏；其他页面不动。
+       * （不认 lvh 的浏览器会忽略这一条，退回上面 .section 的 100svh。）
+       */
+      .works,
+      .suit {
+        min-height: 100lvh;
+      }
       .timeline { grid-template-columns: 1fr; }
       .timeline-item + .timeline-item { padding-left: 0; border-left: 0; border-top: 1px solid var(--line-light); }
       .gallery-shell[data-shape="landscape"] .suit-set {
         width: min(86vw, 21rem);
-        aspect-ratio: 3 / 2;
+        /*
+         * v1.3：横版卡片从 3:2 改到 4:3。
+         * 卡片宽度是 86vw（约 336px）时，卡内标题那行（SET 01 · 08 artworks + 作品名）
+         * 固定占 51px 高，3:2 的卡片只剩 13.85%（31px）留给它，图片直接压在小字上，
+         * 手机上整行 SET XX · XX ARTWORKS 看不见。把卡片加高 28px 换成 4:3，
+         * 配合下面 stack 的底部内边距，图片区比例仍是 1.78:1（和原来 1.81:1 基本一致），
+         * 取景不会因为这次改动被多裁。
+         */
+        aspect-ratio: 4 / 3;
       }
       /* 手机端横版堆叠卡更扁（约 2.3:1），居中裁切会把人物头部切掉，取景整体上移 */
       .gallery-shell[data-shape="landscape"] .suit-set-stack img {
@@ -2138,7 +2188,12 @@
        * 内框比例与桌面端一致（约 1.81:1），横版封面不会被压扁。
        */
       .gallery-shell[data-shape="landscape"] .suit-set-stack {
-        inset: 7.53% 5.02% 13.85% .2%;
+        /*
+         * 底部不再用百分比：卡内那两行字（小字 17.4px + 作品名 31.3px + 间距 2.4px ≈ 51px）
+         * 是固定高度，卡片一小就会把百分比挤爆。3.4rem（54.4px）刚好把这两行整块让出来，
+         * 还留 ~3px 呼吸位；上 / 右 / 左仍是桌面端那套比例。
+         */
+        inset: 7.53% 5.02% 3.4rem .2%;
       }
       .gallery-grid-rail { grid-auto-columns: min(44vw, 11rem); }
       /* Live Wallpapers：手机端同样单行横排，OPEN PROFILE 箭头常驻 */
@@ -3171,7 +3226,7 @@
             <span>Designed for a quiet, blue-edged world.</span>
             <span class="footer-sign">
               <!-- 最近更新日期：以后每次改完站点顺手把这里改成当天（日/月/年） -->
-              <span>Last updated 14/09/2026 · v1.2</span>
+              <span>Last updated 15/09/2026 · v1.3</span>
               <img class="footer-signature" src="assets/silvade-signature.png" alt="Silvade 签名" width="600" height="328" loading="lazy" decoding="async">
             </span>
           </footer>
