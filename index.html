@@ -643,6 +643,13 @@
       letter-spacing: .15em;
       text-transform: uppercase;
     }
+    /*
+     * 手机端弹窗窄，赫罗斯加德那行小标签（HROSGAARD / NORTHERN FRONTIER）
+     * 挤在一行里不好看：斜杠后断开，第二段自己占一行。桌面 / 平板宽度够，不动。
+     */
+    @media (max-width: 800px) {
+      .story-dialog-kicker .kicker-break { display: block; }
+    }
     .story-dialog h2 {
       margin: 0;
       color: var(--ink);
@@ -1943,6 +1950,14 @@
        * （相册目录按钮、左右箭头、堆叠卡等控件上最容易看到）。
        */
       * { -webkit-tap-highlight-color: transparent; }
+      /*
+       * 手机端进场动画压短：手机是长滚动 + 惯性，桌面那套 24px / .7s 的位移
+       * 在滑动里根本看不完 —— 量过，标题从视口下缘露头到淡入结束，页面还在
+       * 往前滑 400 多像素，等它滑到眼前时透明度才爬到 40%，看着就是"啪"地突现。
+       * 位移减到 14px、时长压到 .36s，配合脚本里"提前 8% 视口高开始"，
+       * 标题滑进眼睛之前就已经亮完了。桌面端不受影响（这段在手机断点里）。
+       */
+      .reveal { transform: translateY(14px); transition-duration: .36s; }
       .topnav { display: none; }
       /*
        * 三横总目录：灰条右侧的按钮 + 向下展开的跳转面板。
@@ -3082,7 +3097,7 @@
               <span class="story-trigger-cta" aria-hidden="true">READ ARCHIVE<svg class="arrow-ne" viewBox="0 0 12 12" focusable="false"><path d="M3.4 8.6 8.6 3.4M4.9 3.4h3.7v3.7"/></svg></span>
               <b>02 / Hrosgaard</b>
               <h3>赫罗斯加德</h3>
-              <p><span class="timeline-zh-break">北方林海与雪原之间的独行猎人，</span>循着风、兽迹与冰层下的微响穿越北境。<span class="timeline-en">A lone hunter between northern forests and snowfields, crossing the North by wind, tracks, and the faint sounds beneath the ice.</span></p>
+              <p><span class="timeline-zh-break">北方林海与冰原之间的独行猎人，</span>循着风、兽迹与冰层下的微响穿越北境。<span class="timeline-en">A lone hunter between northern forests and icefields, crossing the North by wind, tracks, and the faint sounds beneath the ice.</span></p>
             </div>
             <div class="timeline-item timeline-story-trigger" role="button" tabindex="0" data-story-trigger="helyon" aria-label="打开《未眠都市》全文">
               <span class="story-trigger-cta" aria-hidden="true">READ ARCHIVE<svg class="arrow-ne" viewBox="0 0 12 12" focusable="false"><path d="M3.4 8.6 8.6 3.4M4.9 3.4h3.7v3.7"/></svg></span>
@@ -3281,7 +3296,7 @@
     <div class="story-dialog" role="dialog" aria-modal="true" aria-labelledby="story-dialog-title">
       <div class="story-dialog-header">
         <div>
-          <p class="story-dialog-kicker">Hrosgaard / Northern Frontier</p>
+          <p class="story-dialog-kicker">Hrosgaard / <span class="kicker-break">Northern Frontier</span></p>
           <h2 id="story-dialog-title" data-story-title-zh="古老冰原的守望者" data-story-title-zh-break="古老冰原的" data-story-title-en="The Guardian of the Ancient Icefield">古老冰原的守望者</h2>
         </div>
         <div class="story-actions">
@@ -5655,6 +5670,12 @@
       if (config) initGallery(galleryRoot, config);
     });
 
+    /*
+     * 进场观察器：桌面端维持原样（翻页是一整页跳过去，慢慢淡入正好）。
+     * 手机端改成"视口下缘多算 8% + 阈值 0"：元素还没真正进画面就开始淡入，
+     * 配合 CSS 里压短的 .36s，滑到眼前时早就亮完，不会中途半透明地飞过去。
+     */
+    const revealMobileQuery = window.matchMedia("(max-width: 800px)");
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
@@ -5662,7 +5683,9 @@
           observer.unobserve(entry.target);
         }
       });
-    }, { threshold: .12 });
+    }, revealMobileQuery.matches
+      ? { threshold: 0, rootMargin: "0px 0px 8% 0px" }
+      : { threshold: .12 });
     document.querySelectorAll(".reveal").forEach((item) => observer.observe(item));
 
     const loreToggle = document.querySelector("[data-lang-toggle]");
