@@ -2217,7 +2217,13 @@
          */
         inset: 7.53% 5.02% 3.4rem .2%;
       }
-      .gallery-grid-rail { grid-auto-columns: min(44vw, 11rem); }
+      /*
+       * 手机端的列宽也要能被脚本改写（sizeGalleryTiles 写的 --gallery-tile-width）：
+       * 第二层"收在一屏里"就是靠它把两排缩略图收到刚好放得下。
+       * 以前这里写死 min(44vw, 11rem)，脚本算出来的值全被这条盖掉、一直没生效。
+       * 没有脚本值（或脚本明确不缩）时，仍是原来的 min(44vw, 11rem)。
+       */
+      .gallery-grid-rail { grid-auto-columns: var(--gallery-tile-width, min(44vw, 11rem)); }
       /* Live Wallpapers：手机端同样单行横排，OPEN PROFILE 箭头常驻 */
       .gallery-shell[data-layout="wallpaper"] .gallery-grid-rail {
         grid-auto-columns: min(78vw, 19rem);
@@ -4030,10 +4036,33 @@
         );
       };
 
+      /*
+       * 手机端"第二层收在一屏里"用的可视高度：取 100svh（工具栏全展开时的最小视口），
+       * 不用 innerHeight —— iOS 上工具栏收起 / 展开会让 innerHeight 反复变，缩略图跟着忽大忽小会抖。
+       * svh 是稳定值；JS 读不到它的数值，就临时挂一个 height:100svh 的空盒子量一次、量完删掉，
+       * 结果按窗口宽缓存（换宽度 / 转屏再量）。
+       */
+      let stableVhCache = { w: 0, h: 0 };
+      const stableViewportH = () => {
+        const w = window.innerWidth || 0;
+        if (stableVhCache.w === w && stableVhCache.h) return stableVhCache.h;
+        const probe = document.createElement("div");
+        probe.setAttribute("aria-hidden", "true");
+        probe.style.cssText = "position:fixed;top:0;left:0;width:0;height:100svh;visibility:hidden;pointer-events:none";
+        document.body.appendChild(probe);
+        const h = probe.getBoundingClientRect().height;
+        probe.remove();
+        stableVhCache = { w, h: h > 120 ? h : (window.innerHeight || 0) };
+        return stableVhCache.h;
+      };
+
       /* 缩略图列宽跟随可用高度，保证横竖照片都不被拉伸、裁切也尽量少 */
       const sizeGalleryTiles = () => {
         const rail = galleryRails.grid;
         if (!rail || !rail.clientHeight) return;
+        const mobile = window.matchMedia("(max-width: 800px)").matches;
+        /* 手机端先清掉上一轮写进去的列宽，量到的才是 CSS 给的自然列宽（和 syncWallFit 同一套做法） */
+        if (mobile) rail.style.removeProperty("--gallery-tile-width");
         const styles = window.getComputedStyle(rail);
         const rowGap = parseFloat(styles.rowGap || "0") || 0;
         const paddingTop = parseFloat(styles.paddingTop || "0") || 0;
@@ -4049,7 +4078,30 @@
         const wideScale = wideScreenMode() === "ultrawide"
           ? 1
           : Math.max(1, parseFloat(document.documentElement.style.getPropertyValue("--wide-scale")) || 1);
-        const width = Math.max(96, Math.min(260 * wideScale, rowHeight * 0.75));
+        let width = Math.max(96, Math.min(260 * wideScale, rowHeight * 0.75));
+        /*
+         * 手机端第二层"收在一屏里"（v1.3 追加，用户反馈：打开第二层后缩略图列表偏低、底部还被切）。
+         * 第二层的高度是"两排 3:4 缩略图 + 框顶那 4.1rem 留白 + 状态行"，一屏装不下时就只能往下溢出。
+         * 这里按"标题以下到一屏底边还剩多少"反推列宽，直接让两排缩略图缩到刚好放得下；
+         * 上限仍是 CSS 给的自然列宽（min(44vw, 11rem)），所以只有在装不下的时候才会变小，
+         * 一屏放得下的机型一个字不改。桌面 / 平板不进这一段。
+         */
+        if (mobile) {
+          const cssWidth = parseFloat(styles.gridAutoColumns) || 0;
+          if (cssWidth > 0) width = Math.min(width, cssWidth);
+          const shell = rail.closest(".gallery-shell");
+          const section = shell ? shell.closest("section") : null;
+          if (shell && section) {
+            const shellTopRel = shell.getBoundingClientRect().top - section.getBoundingClientRect().top;
+            /* 状态行那一条固定在图片下面，先把它从"可用高度"里扣掉 */
+            const statusH = Math.max(0, shell.offsetHeight - rail.clientHeight);
+            /* 再留 0.5rem：状态行别贴着屏幕底线 */
+            const reserve = 0.5 * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+            const budgetRowH = (stableViewportH() - shellTopRel - statusH - paddingTop - paddingBottom - rowGap - reserve) / 2;
+            /* 下限 120px：比这还小就看不清了，那种小屏宁可让第二层略微溢出一点 */
+            if (budgetRowH > 0) width = Math.min(width, Math.max(budgetRowH * 0.75, 120));
+          }
+        }
         rail.style.setProperty("--gallery-tile-width", `${width}px`);
       };
 
@@ -5224,15 +5276,15 @@
           const shellH = fursuitGallery.offsetHeight;
           if (!(areaH > 80) || !(shellH > 80)) return;
           /*
-           * 上面这个自然居中值，委托页和兽装页算出来是不一样的（委托页第一层是横版堆叠卡，
-           * 比兽装页的竖版卡矮一大截，居中后框顶压得更低）：402×874 实测委托页 140.6px、兽装页 74.6px，
-           * 也就是同样的标题、同样的展示区，两页的按钮行相差 66px，看着都偏低。
-           * 这里给居中值加一个上限 3.15rem（402 宽的机器上是 50.4px）：高一点的屏两页都会被压到同一档，
-           * 按钮行落在同一条线上；矮屏（如 375×667，展示区装不下竖版卡）自然值本来就小于上限，
-           * 保持原样不额外往上顶。
+           * 这个自然居中值委托页和兽装页算出来不一样（委托页第一层是横版堆叠卡，比兽装页的
+           * 竖版卡矮一大截，居中后框顶压得更低；402×874 实测 140.6px vs 74.6px），
+           * 而且"展示区多高"本身还跟着各机型的 lvh 浮动 —— 只卡一个上限的话，
+           * 换台设备兽装页的自然值掉到上限以下，两页又会错开（用户实机反馈"按钮位置还是不一样"）。
+           * 所以手机端直接钉一个固定值 1.8rem：两页、两层、任何机身高度都落在同一条线上。
+           * 展示区装不下卡片时（矮屏）相册框会往下溢出一点，这是本来就会发生的，section 会跟着长高、不会裁切。
            */
           const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-          const pad = Math.max(0, Math.min((areaH - shellH) / 2, 3.15 * rem));
+          const pad = 1.8 * rem;
           galleryRowAnchor.pad = pad;
           galleryRowAnchor.vh = vh;
           fursuitGallery.style.setProperty("--gallery-row-pad", pad.toFixed(1) + "px");
