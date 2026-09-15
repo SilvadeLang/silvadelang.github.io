@@ -1974,7 +1974,14 @@
        * 位移减到 14px、时长压到 .36s，配合脚本里"提前 8% 视口高开始"，
        * 标题滑进眼睛之前就已经亮完了。桌面端不受影响（这段在手机断点里）。
        */
-      .reveal { transform: translateY(14px); transition-duration: .36s; }
+      /*
+       * translate3d 而不是 translateY：iOS Safari 只会把带 3D 变换的元素
+       * 放进合成层，滚动中做 opacity 过渡时不再逐帧重绘整块大字号文字。
+       * 配合下面 .is-animating 在动画期间挂 will-change，动画一结束就撤掉，
+       * 不会长期占显存，也不会让宋体一直吃 GPU 抗锯齿。
+       */
+      .reveal { transform: translate3d(0, 14px, 0); transition-duration: .36s; }
+      .reveal.is-animating { will-change: opacity, transform; }
       .topnav { display: none; }
       /*
        * 三横总目录：灰条右侧的按钮 + 向下展开的跳转面板。
@@ -5705,11 +5712,33 @@
      * 动画就跑完了，用户反馈"看起来就像没有动画"。
      */
     const revealMobileQuery = window.matchMedia("(max-width: 800px)");
+    /* 和 CSS 里手机端的 transition-duration 保持一致，留 120ms 余量再撤图层 */
+    const REVEAL_MOBILE_MS = 360;
+    const revealElement = (item) => {
+      if (!revealMobileQuery.matches) {
+        item.classList.add("is-visible");
+        return;
+      }
+      /*
+       * iOS Safari 的坑：没有独立合成层时，大字号文本在滚动里做
+       * opacity + transform 过渡会退化成逐帧软件重绘，主线程一忙过渡就被
+       * 跳过去 —— 表现就是标题滑到眼前"啪"地突现，而同页的小字三栏、
+       * 图片堆叠看着正常（它们栅格化便宜）。这里先把元素提升为合成层，
+       * 强制提交一次样式，再启动过渡，让动画跑在合成线程上；结束后撤掉。
+       */
+      item.classList.add("is-animating");
+      void item.offsetHeight;
+      item.classList.add("is-visible");
+      window.setTimeout(
+        () => item.classList.remove("is-animating"),
+        REVEAL_MOBILE_MS + 120
+      );
+    };
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          entry.target.classList.add("is-visible");
           observer.unobserve(entry.target);
+          revealElement(entry.target);
         }
       });
     }, revealMobileQuery.matches
