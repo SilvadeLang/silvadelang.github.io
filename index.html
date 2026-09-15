@@ -294,7 +294,8 @@
      * 桌面 / 平板不加断点，仍是利落的一整行。
      */
     @media (max-width: 800px) {
-      .hero h1 > span { font-size: .21em; }
+      /* 放大的同时行距也松一点（1 → 1.34），两行贴太紧会像一坨 */
+      .hero h1 > span { font-size: .21em; line-height: 1.34; }
       .hero h1 > span .hero-sub-line { display: block; }
     }
     .hero-intro {
@@ -2664,6 +2665,16 @@
       html.is-wide-screen .fact-list {
         top: var(--lore-band-top, 5.4rem);
         /* dl 自带 1em 外边距，会把表格再压下去一截，这里归零，位置完全由脚本算 */
+        margin-top: 0;
+      }
+      /*
+       * "又窄又高"的窗口（宽度没到 1920、拿不到 is-wide-screen，视口却高得离谱）：
+       * 脚本给正文下沉量卡了上限，咬到上限时就会挂上 is-lore-tall，
+       * 属性表跟着正文块走 —— 不然正文沉在中间、表格还贴在页面顶部。
+       * 正常分辨率永远不会挂这个 class（见 syncLoreFit 里的上限算式）。
+       */
+      html.is-lore-tall .fact-list {
+        top: var(--lore-band-top, 5.4rem);
         margin-top: 0;
       }
       .fact {
@@ -5745,6 +5756,8 @@
         loreSection.style.removeProperty("--lore-shift");
         loreSection.style.removeProperty("--lore-band-top");
         loreSection.style.removeProperty("--lore-btn-top");
+        /* 手机版式不参与，顺手把"又窄又高"那条标记摘掉，免得缩窗口回来还留着 */
+        document.documentElement.classList.remove("is-lore-tall");
         loreFitKey = "";
         return;
       }
@@ -5818,6 +5831,8 @@
         ? headingNode.getBoundingClientRect().bottom - revealShift(headingNode)
         : storyTop;
       let shift = 0;
+      /* 非宽屏分支里"余量太大"的标记：见下面 else 分支 */
+      let tallBand = false;
       if (wideLore) {
         /*
          * 居中按"标题底 → 三栏顶"这段空间算：正文块自然落位比标题底还低一点
@@ -5828,12 +5843,28 @@
         if (room > 0) shift = Math.max(0, bandTop + room * 0.5 - storyTop);
       } else if (loreGridNode) {
         const slack = timelineTop - loreGridNode.getBoundingClientRect().bottom;
-        if (slack > 8) shift = slack * 0.5;
+        if (slack > 8) {
+          /*
+           * 非宽屏版式只挪正文（属性表钉在页顶不动），把下方的余量让一半给下沉位移。
+           * 普通窗口余量不大，这样分匀正好；但"又窄又高"的窗口（宽度不够 1920、拿不到
+           * is-wide-screen，视口却高得离谱）余量会膨胀到上千像素，正文一个人沉到页面
+           * 中间、属性表还贴在页顶（2026-09-15 用户朋友的截图就是这个）。
+           * 这里给下沉量卡一个上限：14rem 与 18vh 取大者 —— 比所有正常窗口的自然值都高
+           * （实测最大的是 iPad 竖屏 195.7px，1180 高时上限 224px），所以 100% 缩放的
+           * 正常分辨率一个像素都不会动；真咬到上限时才让属性表跟着正文走（下面的 band 分支）。
+           */
+          const capFont = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+          const cap = Math.max(capFont * 14, window.innerHeight * 0.18);
+          const natural = slack * 0.5;
+          shift = Math.min(natural, cap);
+          tallBand = natural > cap + .5;
+        }
       }
       if (shift > .5) loreSection.style.setProperty("--lore-shift", shift.toFixed(1) + "px");
       else loreSection.style.removeProperty("--lore-shift");
+      document.documentElement.classList.toggle("is-lore-tall", tallBand);
 
-      if (!wideLore) {
+      if (!wideLore && !tallBand) {
         loreSection.style.removeProperty("--lore-band-top");
         loreSection.style.removeProperty("--lore-btn-top");
         return;
