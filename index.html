@@ -1981,7 +1981,12 @@
        * 不会长期占显存，也不会让宋体一直吃 GPU 抗锯齿。
        */
       .reveal { transform: translate3d(0, 14px, 0); transition-duration: .36s; }
-      .reveal.is-animating { will-change: opacity, transform; }
+      /*
+       * 手机端非首屏的进场由脚本按滚动位置实时驱动（见 revealMobileQuery 那一段）。
+       * 这时候必须关掉 CSS 过渡，否则每写一次数值都会再走一遍过渡，画面会糊；
+       * will-change 让这两个属性直接走合成，不进主线程重绘。
+       */
+      .reveal.is-linked { transition: none; will-change: opacity, transform; }
       .topnav { display: none; }
       /*
        * 三横总目录：灰条右侧的按钮 + 向下展开的跳转面板。
@@ -5705,46 +5710,136 @@
     });
 
     /*
-     * 进场观察器：桌面端维持原样（翻页是一整页跳过去，慢慢淡入正好）。
-     * 手机端用阈值 0：元素**刚碰到视口下缘**就开始淡入（原来的 .12 是"进来 12% 才算"，
-     * 配上 .7s 的时长，等它亮完人眼已经滑过去了）。
-     * 注意别再往下缘外面加 rootMargin：试过"提前 8% 视口高"触发，结果元素还没露面
-     * 动画就跑完了，用户反馈"看起来就像没有动画"。
+     * 进场动画分两条路。
+     *
+     * 桌面端 / 平板：维持原样，IntersectionObserver 触发 + CSS 过渡。整页跳转
+     * 过去之后页面是静止的，0.7s 的淡入正好慢慢铺开。
+     *
+     * 手机端（除首屏外）：改成"滚动位置驱动"，不再用定时过渡。原因是
+     * iOS Safari 在惯性滚动期间会冻结时间驱动的 CSS 过渡 —— 滚动一停，过渡
+     * 直接按已经过去的时间跳到终值。所以"滚动中触发 + 定时淡入"必然时好时坏：
+     * 委托页、社媒页经常整段被跳过去（看着就是突现），兽装页恰好每次都在滚动
+     * 停下来之后才触发，就一直很顺 —— 差别不在标题本身，在触发那一刻还在不在滚。
+     * 位置驱动没有时钟参与：透明度只由元素此刻在视口里的位置决定，滚多快都跟手，
+     * 停下也不会跳变。
      */
     const revealMobileQuery = window.matchMedia("(max-width: 800px)");
-    /* 和 CSS 里手机端的 transition-duration 保持一致，留 120ms 余量再撤图层 */
-    const REVEAL_MOBILE_MS = 360;
-    const revealElement = (item) => {
-      if (!revealMobileQuery.matches) {
-        item.classList.add("is-visible");
-        return;
-      }
-      /*
-       * iOS Safari 的坑：没有独立合成层时，大字号文本在滚动里做
-       * opacity + transform 过渡会退化成逐帧软件重绘，主线程一忙过渡就被
-       * 跳过去 —— 表现就是标题滑到眼前"啪"地突现，而同页的小字三栏、
-       * 图片堆叠看着正常（它们栅格化便宜）。这里先把元素提升为合成层，
-       * 强制提交一次样式，再启动过渡，让动画跑在合成线程上；结束后撤掉。
-       */
-      item.classList.add("is-animating");
-      void item.offsetHeight;
-      item.classList.add("is-visible");
-      window.setTimeout(
-        () => item.classList.remove("is-animating"),
-        REVEAL_MOBILE_MS + 120
-      );
+    const REVEAL_TRAVEL = 14;   /* 和 CSS 里手机端的初始位移保持一致 */
+    const REVEAL_START = 1;     /* 元素顶边还贴着视口下缘：完全透明 */
+    const REVEAL_END = .74;     /* 元素顶边升到视口 74% 高处：完全显示 */
+    const linkedReveal = [];
+    let linkedFrame = 0;
+    let linkedSettleTimer = 0;
+
+    const finishLinkedReveal = (entry) => {
+      entry.done = true;
+      entry.node.classList.add("is-visible");
+      entry.node.style.removeProperty("opacity");
+      entry.node.style.removeProperty("transform");
+      entry.node.style.removeProperty("transition");
+      /* 动画做完再撤合成层，免得刚起步就降级重绘 */
+      window.setTimeout(() => entry.node.classList.remove("is-linked"), 120);
     };
+
+    const linkedRevealPending = () => linkedReveal.some((entry) => !entry.done);
+
+    const runLinkedReveal = () => {
+      linkedFrame = 0;
+      const vh = window.innerHeight || 0;
+      const startY = vh * REVEAL_START;
+      const span = Math.max(1, vh * (REVEAL_START - REVEAL_END));
+      const steps = [];
+      let tracking = false;
+      linkedReveal.forEach((entry) => {
+        if (entry.done || entry.settling) return;
+        const top = entry.node.getBoundingClientRect().top;
+        let progress = (startY - top) / span;
+        if (progress < 0) progress = 0;
+        else if (progress > 1) progress = 1;
+        /*
+         * 只有已经进视口、正在过渡的元素才需要逐帧跟。
+         * 页面下方还没露头的元素一律不参与，否则这个 rAF 循环永远停不下来。
+         */
+        if (progress > 0) tracking = true;
+        steps.push([entry, progress]);
+      });
+      /*
+       * 先读完再统一写：上面一轮 getBoundingClientRect 只触发一次布局，
+       * 下面写 opacity / transform 都是合成属性，滚动里不会引起重排。
+       */
+      steps.forEach(([entry, progress]) => {
+        if (progress === entry.progress) return;
+        /* 还在视口下面时保持 CSS 初始态就行，不必写内联值 */
+        if (progress === 0 && entry.progress < 0) {
+          entry.progress = 0;
+          return;
+        }
+        entry.progress = progress;
+        entry.node.style.opacity = progress.toFixed(3);
+        entry.node.style.transform = `translate3d(0, ${((1 - progress) * REVEAL_TRAVEL).toFixed(2)}px, 0)`;
+        if (progress >= 1) finishLinkedReveal(entry);
+      });
+      if (tracking) linkedFrame = window.requestAnimationFrame(runLinkedReveal);
+    };
+
+    const wakeLinkedReveal = () => {
+      if (linkedFrame || !linkedRevealPending()) return;
+      linkedFrame = window.requestAnimationFrame(runLinkedReveal);
+    };
+
+    /*
+     * 兜底：万一手指停在一个"半亮"的位置（元素顶边落在视口 74%~100% 之间），
+     * 滚动停下 180ms 后把视口里的补齐，不留半透明的标题。
+     */
+    const settleLinkedReveal = () => {
+      linkedSettleTimer = 0;
+      const vh = window.innerHeight || 0;
+      linkedReveal.forEach((entry) => {
+        if (entry.done || entry.settling) return;
+        const rect = entry.node.getBoundingClientRect();
+        if (rect.top > vh * REVEAL_START || rect.bottom < 0) return;
+        entry.settling = true;
+        entry.node.style.transition = "opacity .24s ease, transform .24s ease";
+        entry.node.style.opacity = "1";
+        entry.node.style.transform = "translate3d(0, 0, 0)";
+        window.setTimeout(() => finishLinkedReveal(entry), 260);
+      });
+    };
+
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           observer.unobserve(entry.target);
-          revealElement(entry.target);
+          entry.target.classList.add("is-visible");
         }
       });
     }, revealMobileQuery.matches
       ? { threshold: 0 }
       : { threshold: .12 });
-    document.querySelectorAll(".reveal").forEach((item) => observer.observe(item));
+
+    document.querySelectorAll(".reveal").forEach((item) => {
+      /*
+       * 首屏元素（页面加载时就在视口里）继续走 CSS 过渡，保留首页那一下浮入；
+       * 手机端其余元素交给位置驱动。
+       */
+      const onFirstScreen = item.getBoundingClientRect().top < (window.innerHeight || 0);
+      if (revealMobileQuery.matches && !onFirstScreen) {
+        item.classList.add("is-linked");
+        linkedReveal.push({ node: item, done: false, progress: -1 });
+        return;
+      }
+      observer.observe(item);
+    });
+
+    if (linkedReveal.length) {
+      window.addEventListener("scroll", () => {
+        wakeLinkedReveal();
+        window.clearTimeout(linkedSettleTimer);
+        linkedSettleTimer = window.setTimeout(settleLinkedReveal, 180);
+      }, { passive: true });
+      window.addEventListener("resize", wakeLinkedReveal, { passive: true });
+      wakeLinkedReveal();
+    }
 
     const loreToggle = document.querySelector("[data-lang-toggle]");
     const loreToggleLabel = loreToggle ? loreToggle.querySelector("[data-lang-label]") : null;
