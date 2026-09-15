@@ -275,7 +275,8 @@
       letter-spacing: -.06em;
       line-height: .86;
     }
-    .hero h1 span {
+    /* 只认直接子级：这行里面还套了一层 .hero-sub-line（手机端换行用） */
+    .hero h1 > span {
       display: block;
       color: var(--ice);
       font-family: var(--sans);
@@ -286,6 +287,15 @@
       line-height: 1;
       margin-top: 1.5rem;
       text-transform: uppercase;
+    }
+    /*
+     * 手机端这行小字：① 在 "Hunter of" 后面断行（"Silvade · Hunter of" / "Icefield and Skyline"，
+     * 两行各 20 个字符，比自动折行落在 "AND SKYLINE" 那儿长得多）；② 整体放大一点点。
+     * 桌面 / 平板不加断点，仍是利落的一整行。
+     */
+    @media (max-width: 800px) {
+      .hero h1 > span { font-size: .21em; }
+      .hero h1 > span .hero-sub-line { display: block; }
     }
     .hero-intro {
       max-width: 31rem;
@@ -3055,7 +3065,7 @@
         </video>
         <div class="hero-content reveal">
           <div class="eyebrow">Character Archive / Ice and Neon</div>
-          <h1>锡尔维德<span>Silvade · Hunter of Icefield and Skyline</span></h1>
+          <h1>锡尔维德<span>Silvade · Hunter of <span class="hero-sub-line">Icefield and Skyline</span></span></h1>
           <p class="hero-intro">一只从冰川深处醒来的白色剑齿虎，在失去的时代与<br class="desktop-break">尚未到来的城市之间，继续追逐风、雪与刀锋。</p>
           <div class="hero-meta">
             <span>Born ≈ 10000 years ago</span>
@@ -5678,8 +5688,10 @@
 
     /*
      * 进场观察器：桌面端维持原样（翻页是一整页跳过去，慢慢淡入正好）。
-     * 手机端改成"视口下缘多算 8% + 阈值 0"：元素还没真正进画面就开始淡入，
-     * 配合 CSS 里压短的 .36s，滑到眼前时早就亮完，不会中途半透明地飞过去。
+     * 手机端用阈值 0：元素**刚碰到视口下缘**就开始淡入（原来的 .12 是"进来 12% 才算"，
+     * 配上 .7s 的时长，等它亮完人眼已经滑过去了）。
+     * 注意别再往下缘外面加 rootMargin：试过"提前 8% 视口高"触发，结果元素还没露面
+     * 动画就跑完了，用户反馈"看起来就像没有动画"。
      */
     const revealMobileQuery = window.matchMedia("(max-width: 800px)");
     const observer = new IntersectionObserver((entries) => {
@@ -5690,7 +5702,7 @@
         }
       });
     }, revealMobileQuery.matches
-      ? { threshold: 0, rootMargin: "0px 0px 8% 0px" }
+      ? { threshold: 0 }
       : { threshold: .12 });
     document.querySelectorAll(".reveal").forEach((item) => observer.observe(item));
 
