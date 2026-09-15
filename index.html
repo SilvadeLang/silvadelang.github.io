@@ -5280,11 +5280,16 @@
            * 竖版卡矮一大截，居中后框顶压得更低；402×874 实测 140.6px vs 74.6px），
            * 而且"展示区多高"本身还跟着各机型的 lvh 浮动 —— 只卡一个上限的话，
            * 换台设备兽装页的自然值掉到上限以下，两页又会错开（用户实机反馈"按钮位置还是不一样"）。
-           * 所以手机端直接钉一个固定值 1.8rem：两页、两层、任何机身高度都落在同一条线上。
+           * 所以手机端直接钉一个固定值：两页、两层、任何机身高度都落在同一条线上。
+           * 取值是照着"大标题 → 左上角圆形按钮"那段留白定的，它有固定三段：
+           *   .section-heading 的 margin-bottom 2.5rem（40px，手机端规则）
+           *   + 这里的锚点 pad + .gallery-nav 自己的 top .35rem
+           * 用户实机截图量下来那段留白约 46px（标题字形底到按钮顶），要求砍掉一半，
+           * 于是 pad 从 1.8rem 收到 0.35rem：40 + 5.6 + 5.6 - 约 28px（标题行盒在字形下方的余量）≈ 23px。
            * 展示区装不下卡片时（矮屏）相册框会往下溢出一点，这是本来就会发生的，section 会跟着长高、不会裁切。
            */
           const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-          const pad = 1.8 * rem;
+          const pad = 0.35 * rem;
           galleryRowAnchor.pad = pad;
           galleryRowAnchor.vh = vh;
           fursuitGallery.style.setProperty("--gallery-row-pad", pad.toFixed(1) + "px");
