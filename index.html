@@ -262,7 +262,12 @@
       background: currentColor;
     }
     .hero h1 {
-      max-width: 9ch;
+      /*
+       * 原来这里限 9ch（1536px 下约 842px）是为了压住大标题的行宽，
+       * 但下面那行小字（Silvade · Hunter of Icefield and Skyline）更长，
+       * 一起被压到 2 行。中文标题本身只有 4 个字、离上限还远，
+       * 所以宽度约束整个去掉，让 h1 用满内容容器，小字就能收在一行里。
+       */
       margin: 1.1rem 0 1.35rem;
       font-family: var(--serif);
       font-size: clamp(4.5rem, 13vw, 10.5rem);
@@ -276,7 +281,8 @@
       font-family: var(--sans);
       font-size: .18em;
       font-weight: 500;
-      letter-spacing: .34em;
+      /* 字距从 .34em 收到 .26em：这句话有 39 个字符，.34em 在 801~900px 的窄桌面窗口里会差一点折行 */
+      letter-spacing: .26em;
       line-height: 1;
       margin-top: 1.5rem;
       text-transform: uppercase;
@@ -3049,7 +3055,7 @@
         </video>
         <div class="hero-content reveal">
           <div class="eyebrow">Character Archive / Ice and Neon</div>
-          <h1>锡尔维德<span>Silvade · An Icefield Hunter</span></h1>
+          <h1>锡尔维德<span>Silvade · Hunter of Icefield and Skyline</span></h1>
           <p class="hero-intro">一只从冰川深处醒来的白色剑齿虎，在失去的时代与<br class="desktop-break">尚未到来的城市之间，继续追逐风、雪与刀锋。</p>
           <div class="hero-meta">
             <span>Born ≈ 10000 years ago</span>
@@ -3312,7 +3318,7 @@
           <p>“今天不追。”他会对沃尔德赫姆说，“风太乱，留下的脚印不是真的。”</p>
           <p>灵体低吼一声，刀尖擦过雪面，留下一道蓝色的痕。锡尔维德看了它一眼，伸手把刀柄往回按了半寸。“我知道你看见了。但我们不是来替旧时代收尸的。”</p>
           <p>锡尔维德继续向北。赫罗斯加德的边境正在变冷，猎人的营火越来越少，巡逻队也不再愿意走进林海深处。偶尔有人在山脊上看见一道白色身影。第二天，失踪的牲畜会回到围栏，冰面上的裂缝被标出，某些不该靠近村庄的东西则重新退回雪线之外。</p>
-          <p>锡尔维德从不留下名字。他只在旧木桩上刻下一道横线，提醒后来的人这里曾经有人守护过。沃尔德赫姆站在风中，面具朝向更远的雪原，发出一声低吼。那不是命令，也不像警告，更像一位沉默的老战友，在确认他们仍然走在同一条路上。</p>
+          <p>锡尔维德从不留下名字。他只在旧木桩上刻下一道横线，提醒后来的人这里曾经有人守护过。沃尔德赫姆站在风中，面具朝向更远的冰原，发出一声低吼。那不是命令，也不像警告，更像一位沉默的老战友，在确认他们仍然走在同一条路上。</p>
         </article>
         <article class="story-copy" data-story-copy="en" lang="en">
           <p>Hrosgaard had never been truly quiet. Wind pressed down from the mountain passes, sweeping over frozen lakes and old roads half-buried in snow, thinning the wolves’ cries until they sounded far away. The villagers said that beyond the last beacon tower, a white sabretooth lived somewhere in the forest. He rarely entered the villages and never took paid work. He appeared only when a blizzard closed the roads, livestock went missing, or someone found tracks on the ice that did not belong to this age.</p>
@@ -3321,7 +3327,7 @@
           <p>“Not today,” he would say to Wyrdhelm. “The wind is too erratic. Those tracks are not real.”</p>
           <p>The spirit would growl, its blade-tip brushing the snow and leaving a blue mark behind. Silvade would glance at it and press the hilt back by half an inch. “I know what you saw. But we are not here to bury the old world.”</p>
           <p>Silvade continued north. The Hrosgaard border was growing colder, the hunters’ fires fewer, and the patrols less willing to enter the deep forest. From time to time, someone on a ridge saw a white figure. By morning, missing livestock would be back inside their pens, cracks in the ice would be marked, and certain things that should never have come near the villages would have retreated beyond the snowline.</p>
-          <p>Silvade never left his name behind. He only carved a single horizontal mark into an old wooden post, a reminder to those who came later that someone had once kept watch there. Wyrdhelm stood in the wind, its masked face turned toward the farther snowfields, and gave a low growl. It was not an order, and it did not sound like a warning. It sounded more like a silent old comrade confirming that they were still walking the same road.</p>
+          <p>Silvade never left his name behind. He only carved a single horizontal mark into an old wooden post, a reminder to those who came later that someone had once kept watch there. Wyrdhelm stood in the wind, its masked face turned toward the farther icefields, and gave a low growl. It was not an order, and it did not sound like a warning. It sounded more like a silent old comrade confirming that they were still walking the same road.</p>
         </article>
       </div>
     </div>
