@@ -427,6 +427,12 @@
       line-height: 1.92;
     }
     .story p { margin: 0 0 1.15rem; }
+    /*
+     * 故事页正文的底色遮罩：只有手机端"位置驱动"那一组会把它打开
+     * （见文件后面的媒体查询），桌面 / 平板一律不显示，
+     * 进场保持原来的整块 .reveal 过渡。
+     */
+    .story .story-veil { display: none; }
     .story .dropcap::first-letter {
       float: left;
       margin: .1em .12em 0 0;
@@ -1994,29 +2000,55 @@
        */
       .reveal.is-active { will-change: opacity, transform; }
       /*
-       * 故事页的标题和正文是整站字最密的两个块（两行大字 + 中英八百字）。
-       * 让它俩自己一路半透明，iOS 每帧都得重新渲染这一大片字形，怎么减负
-       * 都救不回来 —— 同页的三栏字少，就一路正常。改成文字本身始终不透明、
-       * 一次画好，上面盖一层和页面底色相同的实心遮罩，由遮罩淡出：
-       * 每帧只动一个纯色矩形，文字再也不参与。
+       * 故事页的标题交给浏览器自己过渡（不再逐帧驱动）。
+       * 它是全场唯一的两行大字（手机端 79px 高，其他页都是一行），
+       * 逐帧写它等于每帧重画将近三倍的量，刚好越过 iOS 一帧的预算。
+       * 正文不走这里 —— 它有八百个字，一次性过渡按时钟跑，快滑时主线程一忙
+       * 就已经"跑完"，看着是突变；所以正文回下面那组位置驱动的联动。
        */
-      .lore .section-heading.is-linked,
+      .lore .section-heading { transition-duration: .5s; }
+      /*
+       * 标题块里的中英切换按钮不参与这次过渡 —— 按钮常驻，只让左边的字浮入。
+       * 按钮自己带描边和一小行字，跟着大标题一起每帧重画是白花的钱；
+       * 摘出去之后，这一块要动的就只剩那两行大字了。
+       */
+      .lore .section-heading.reveal { opacity: 1; transform: none; }
+      .lore .section-heading.reveal > div:first-child {
+        opacity: 0;
+        transform: translate3d(0, 14px, 0);
+        transition: opacity .5s ease, transform .5s ease;
+      }
+      .lore .section-heading.reveal.is-visible > div:first-child {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+      }
+      /*
+       * 故事页正文改走"底色遮罩"：正文自身一次画好（opacity 常驻 1、不位移），
+       * 上面盖一层纸色矩形，每帧只改这一层的 opacity。
+       * 之前直接逐帧写正文的 opacity / transform，iOS 每帧都要重新栅格化这八百个
+       * 字，慢滑就已经吃力、快滑必掉帧；现在每帧动的只是一个纯色方块，
+       * 正文零重绘，也就没有掉帧可言。
+       */
       .lore .story.is-linked {
         position: relative;
         opacity: 1;
+        transform: none;
       }
-      .lore .section-heading.is-linked::after,
-      .lore .story.is-linked::after {
-        content: "";
+      .lore .story.is-linked .story-veil {
+        display: block;
         position: absolute;
-        inset: 0;
+        /*
+         * 往上多盖 10px：正文的放大首字母（3.5em）字体盒比段落框顶高出 8px，
+         * 只按 inset: 0 盖的话，开头那个蓝色的"距"会先在遮罩上方露一角。
+         * 这 10px 落在标题和正文之间的空白里（0.9rem），碰不到标题。
+         */
+        top: -10px;
+        right: 0;
+        bottom: 0;
+        left: 0;
         background: var(--paper);
-        opacity: var(--reveal-veil, 1);
         pointer-events: none;
-      }
-      .lore .section-heading.is-settling::after,
-      .lore .story.is-settling::after {
-        transition: opacity .24s ease;
+        will-change: opacity;
       }
       .topnav { display: none; }
       /*
@@ -2123,6 +2155,13 @@
         object-fit: cover;
         object-position: center;
         transform: translateX(-65%);
+        /*
+         * 手机端不给视频套 CSS 滤镜。它是 2160 宽的片子，套上 saturate/contrast
+         * 之后每一帧都要额外过一遍色彩处理，滚动时和进场动画抢 GPU ——
+         * "从首页往下滑才卡、从后面往回滑正常"就是这个原因。
+         * 桌面端保留原样（那边性能富余）。
+         */
+        filter: none;
       }
       .hero::before {
         background: linear-gradient(90deg, rgba(7, 16, 23, .86) 0%, rgba(7, 16, 23, .36) 45%, rgba(7, 16, 23, .08) 100%);
@@ -3141,6 +3180,7 @@
 
           <div class="lore-grid">
             <article class="story reveal">
+              <div class="story-veil" aria-hidden="true"></div>
               <p class="dropcap" data-lore-zh="距今约一万年前，锡尔维德是一名天生的冰原猎手。天气突变的那一次狩猎中，他跌入裂开的冰川，身体与年龄一同被寒冷按下暂停。" data-lore-en="About ten thousand years ago, Silvade was born for the icefields. During a hunt cut short by a sudden storm, he fell into a split glacier, and both body and age were held still by the cold.">距今约一万年前，锡尔维德是一名天生的冰原猎手。天气突变的那一次狩猎中，他跌入裂开的冰川，身体与年龄一同被寒冷按下暂停。</p>
               <p data-lore-zh="冰层替他保存了生命，也替他错过了一个物种消失的时代。再次睁眼时，熟悉的猎场已经沉入传说。风从雪线上吹过，也灌进高楼的缝隙。" data-lore-en="The ice preserved his life and carried him past the extinction of his kind. When he opened his eyes again, the hunting grounds he knew had sunk into legend. Wind came down off the snowline and poured through the gaps between the towers.">冰层替他保存了生命，也替他错过了一个物种消失的时代。再次睁眼时，熟悉的猎场已经沉入传说。风从雪线上吹过，也灌进高楼的缝隙。</p>
               <p data-lore-zh="他仍然相信速度，仍然相信刀刃划开空气时那一瞬间的轻响。冰系法术似乎与他同源，但比起让世界冻结，他更喜欢让自己先一步抵达。" data-lore-en="He still trusts speed, and the brief sound of a blade parting the air. Ice magic seems almost native to him, yet rather than freezing the world, he prefers arriving one step sooner.">他仍然相信速度，仍然相信刀刃划开空气时那一瞬间的轻响。冰系法术似乎与他同源，但比起让世界冻结，他更喜欢让自己先一步抵达。</p>
@@ -5758,15 +5798,21 @@
     const REVEAL_TRAVEL = 14;   /* 和 CSS 里手机端的初始位移保持一致 */
     const REVEAL_START = 1;     /* 元素顶边还贴着视口下缘：完全透明 */
     const REVEAL_END = .74;     /* 元素顶边升到视口 74% 高处：完全显示 */
+    /*
+     * 故事页正文（走遮罩的那一个）行程单独缩短：它顶边从视口下缘升到 86% 处
+     * 就显示完，不用陪着用户滚过四分之一屏。原来按 .74 算，正文在视口里
+     * 走了两百多像素还在半亮状态，看着既拖又像没加载完。
+     */
+    const STORY_VEIL_END = .86;
     const linkedReveal = [];
     let linkedFrame = 0;
     let linkedSettleTimer = 0;
 
     const finishLinkedReveal = (entry) => {
       entry.done = true;
+      /* 先把遮罩按到全透明，再等一拍摘掉 is-linked，避免遮罩消失那一帧白闪 */
+      if (entry.veilNode) entry.veilNode.style.opacity = "0";
       entry.node.classList.add("is-visible");
-      /* 遮罩先退干净，再摘 is-linked（伪元素是它的，摘早了会闪） */
-      if (entry.veil) entry.node.style.setProperty("--reveal-veil", "0");
       entry.node.style.removeProperty("opacity");
       entry.node.style.removeProperty("transform");
       entry.node.style.removeProperty("transition");
@@ -5774,9 +5820,33 @@
       window.setTimeout(() => {
         entry.node.classList.remove("is-linked");
         entry.node.classList.remove("is-active");
-        entry.node.classList.remove("is-settling");
         entry.active = false;
       }, 120);
+    };
+
+    /*
+     * 给一个"一帧都没露过脸就直接到位"的元素补一次普通过渡。
+     * 目前只有一种情况会走到：刷新时停在故事页，浏览器把滚动位置还原回去，
+     * 正文一上来就已经压在视口里、位置映射一算就是走完了整段行程。
+     * 这时候照常写 1 就是没有浮入，所以改成让它从当前位置淡上来。
+     */
+    const fadeLinkedReveal = (entry) => {
+      entry.settling = true;
+      /*
+       * 遮罩版：只让遮罩淡出。正文不动，就不存在重新栅格化，
+       * 刷新后停在故事页的那一下浮入反而比原来更稳。
+       */
+      if (entry.veilNode) {
+        entry.veilNode.style.transition = "opacity .5s ease";
+        entry.veilNode.style.opacity = "0";
+        window.setTimeout(() => finishLinkedReveal(entry), 560);
+        return;
+      }
+      entry.node.classList.add("is-active");
+      entry.node.style.transition = "opacity .5s ease, transform .5s ease";
+      entry.node.style.opacity = "1";
+      entry.node.style.transform = "translate3d(0, 0, 0)";
+      window.setTimeout(() => finishLinkedReveal(entry), 560);
     };
 
     const linkedRevealPending = () => linkedReveal.some((entry) => !entry.done);
@@ -5801,21 +5871,29 @@
     const runLinkedReveal = () => {
       linkedFrame = 0;
       const vh = window.innerHeight || 0;
-      /* iOS 地址栏伸缩会改视口高、连带挪动元素，这时候重量一次 */
-      if (Math.abs(vh - linkedViewportH) > 1) measureLinkedReveal();
+      /*
+       * iOS 地址栏伸缩会改视口高、连带挪动元素，这时候重量一次。
+       * 阈值给足 60px：地址栏动画期间 innerHeight 每帧都在小幅变化，
+       * 阈值太小会每帧触发一次全量测量，自己把自己拖卡。
+       */
+      if (Math.abs(vh - linkedViewportH) > 60) measureLinkedReveal();
       const startY = vh * REVEAL_START;
       const span = Math.max(1, vh * (REVEAL_START - REVEAL_END));
+      const veilSpan = Math.max(1, vh * (REVEAL_START - STORY_VEIL_END));
       const scrollY = window.scrollY;
       const steps = [];
       let tracking = false;
       linkedMetrics.forEach(({ entry, top: documentTop }) => {
         if (entry.done || entry.settling) return;
         const top = documentTop - scrollY;
-        let progress = (startY - top) / span;
+        let progress = (startY - top) / (entry.veilNode ? veilSpan : span);
         if (progress < 0) progress = 0;
         else if (progress > 1) progress = 1;
-        /* 快进视口时就把合成层挂上，动画做完再摘 */
-        if (top < vh * 1.15 && !entry.active) {
+        /*
+         * 快进视口时就把合成层挂上，动画做完再摘。
+         * 走遮罩的正文不需要这一手 —— 它自己不作任何变形，提层只会白占显存。
+         */
+        if (!entry.veilNode && top < vh * 1.15 && !entry.active) {
           entry.active = true;
           entry.node.classList.add("is-active");
         }
@@ -5837,19 +5915,27 @@
           entry.progress = 0;
           return;
         }
+        /*
+         * 从"还没开始"一步跨到"整段行程走完"，中途一帧都没露过脸 —— 交给过渡补一次。
+         * 手滑过去的不会走到这里：滚得再快也会先经过中间值，那才是位置驱动该干的活。
+         */
+        if (progress >= 1 && !entry.seenMid) {
+          fadeLinkedReveal(entry);
+          return;
+        }
+        if (progress > 0 && progress < 1) entry.seenMid = true;
         entry.progress = progress;
-        if (entry.veil) {
-          /* 遮罩越淡，底下的文字越清楚；文字本身从头到尾都是不透明的 */
-          entry.node.style.setProperty("--reveal-veil", (1 - progress).toFixed(3));
+        if (entry.veilNode) {
+          entry.veilNode.style.opacity = (1 - progress).toFixed(3);
         } else {
           entry.node.style.opacity = progress.toFixed(3);
+          /*
+           * 位移取整：非整数像素的位移会让浏览器每一帧都重新栅格化文字
+           * （大段落文字最贵），取整之后整层直接挪位置，不用重画。
+           */
+          const shift = Math.round((1 - progress) * REVEAL_TRAVEL);
+          entry.node.style.transform = `translate3d(0, ${shift}px, 0)`;
         }
-        /*
-         * 位移取整：非整数像素的位移会让浏览器每一帧都重新栅格化文字
-         * （大段落文字最贵），取整之后整层直接挪位置，不用重画。
-         */
-        const shift = Math.round((1 - progress) * REVEAL_TRAVEL);
-        entry.node.style.transform = `translate3d(0, ${shift}px, 0)`;
         if (progress >= 1) finishLinkedReveal(entry);
       });
       if (tracking) linkedFrame = window.requestAnimationFrame(runLinkedReveal);
@@ -5867,21 +5953,22 @@
     const settleLinkedReveal = () => {
       linkedSettleTimer = 0;
       const vh = window.innerHeight || 0;
-      if (Math.abs(vh - linkedViewportH) > 1) measureLinkedReveal();
+      if (Math.abs(vh - linkedViewportH) > 60) measureLinkedReveal();
       const scrollY = window.scrollY;
       linkedMetrics.forEach(({ entry, top: documentTop, height }) => {
         if (entry.done || entry.settling) return;
         const top = documentTop - scrollY;
         if (top > vh * REVEAL_START || top + height < 0) return;
         entry.settling = true;
-        entry.node.classList.add("is-active");
-        if (entry.veil) {
-          entry.node.classList.add("is-settling");
-          entry.node.style.setProperty("--reveal-veil", "0");
-        } else {
-          entry.node.style.transition = "opacity .24s ease, transform .24s ease";
-          entry.node.style.opacity = "1";
+        if (entry.veilNode) {
+          entry.veilNode.style.transition = "opacity .24s ease";
+          entry.veilNode.style.opacity = "0";
+          window.setTimeout(() => finishLinkedReveal(entry), 260);
+          return;
         }
+        entry.node.classList.add("is-active");
+        entry.node.style.transition = "opacity .24s ease, transform .24s ease";
+        entry.node.style.opacity = "1";
         entry.node.style.transform = "translate3d(0, 0, 0)";
         window.setTimeout(() => finishLinkedReveal(entry), 260);
       });
@@ -5889,10 +5976,15 @@
 
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          observer.unobserve(entry.target);
-          entry.target.classList.add("is-visible");
-        }
+        if (!entry.isIntersecting) return;
+        observer.unobserve(entry.target);
+        /*
+         * 这里不要再补一道 will-change 提前提层。试过：把元素提进合成层和起过渡
+         * 放在前后两帧里，iOS 上那一帧还在栅格化整块字形，等画出来时钟已经跑完，
+         * 看着就是"啪"地冒出来（正文那次就是这么来的）。就这么直接加 is-visible，
+         * 让浏览器自己排期，标题和正文都是一次性过渡，谁都没跳变。
+         */
+        entry.target.classList.add("is-visible");
       });
     }, revealMobileQuery.matches
       ? { threshold: 0 }
@@ -5902,15 +5994,19 @@
       /*
        * 首屏元素（页面加载时就在视口里）继续走 CSS 过渡，保留首页那一下浮入；
        * 手机端其余元素交给位置驱动。
+       *
+       * 故事页的标题是唯一被摘出来的：它是全场唯一的两行大字（手机端 79px 高的 h2，
+       * 别处都是一行），逐帧写它等于每帧重画将近三倍的量，实测掉帧，
+       * 所以它留一次性过渡。正文相反，八百个字逐帧写得住，却受不了过渡的时钟，
+       * 于是留在位置驱动这一组，只不过驱动的是它身上的遮罩而不是它自己
+       * （一帧没露脸就直接到位的情况由 fadeLinkedReveal 兜）。
        */
       const onFirstScreen = item.getBoundingClientRect().top < (window.innerHeight || 0);
-      if (revealMobileQuery.matches && !onFirstScreen) {
-        /*
-         * 故事页标题和正文改用"实心遮罩淡出"，其余元素维持原来的透明度动画。
-         */
-        const veiled = item.matches(".lore .section-heading, .lore .story");
+      if (revealMobileQuery.matches && !onFirstScreen && !item.matches(".lore .section-heading")) {
         item.classList.add("is-linked");
-        linkedReveal.push({ node: item, done: false, progress: -1, veil: veiled });
+        /* 正文自带遮罩节点，每帧只动它；没有遮罩的元素照旧逐帧写自己 */
+        const veilNode = item.querySelector(":scope > .story-veil");
+        linkedReveal.push({ node: item, veilNode, done: false, progress: -1, seenMid: false });
         return;
       }
       observer.observe(item);
@@ -6542,9 +6638,17 @@
     const heroVideo = document.querySelector("#hero-video");
     const homeReturn = document.querySelector(".home-return");
     let heroIsVisible = true;
+    let heroScrolling = false;
+    let heroScrollTimer = 0;
     let heroLoopFrame = 0;
     const heroLoopStart = .08;
     const heroLoopEndPadding = .14;
+    /*
+     * 停在这个滚动量以内就算"人还在首页"（主视觉基本还是整屏），
+     * 手停下来之后视频可以自己续上；滚过头就一直停着，等回到顶部再说。
+     */
+    const HERO_TOP_MAX = 48;
+    const HERO_SCROLL_IDLE_MS = 180;
 
     const seekHeroLoopStart = () => {
       if (!heroVideo || !Number.isFinite(heroVideo.duration) || heroVideo.duration <= 1) return;
@@ -6576,7 +6680,14 @@
 
     const syncHeroPlayback = () => {
       if (!heroVideo) return;
-      if (heroIsVisible && !document.hidden) {
+      /*
+       * 除了"主视觉还在视口里"，再加两条：页面还在顶部、手指没在滚。
+       * iOS 上滚动时 observer 会在可见比例变一次的那一刻回调一次，
+       * 只看可见性的话，它会把刚暂停的视频又播起来 —— 于是滚动期间
+       * 视频继续解码，和故事页的进场动画抢同一帧，标题就卡。
+       */
+      const atTop = window.scrollY <= HERO_TOP_MAX;
+      if (heroIsVisible && atTop && !heroScrolling && !document.hidden) {
         heroVideo.play().catch(() => {
           // Mobile browsers may delay autoplay until the first paint or gesture.
         }).then(() => {
@@ -6621,6 +6732,25 @@
         heroVideo.pause();
       });
       syncHeroPlayback();
+
+      /*
+       * 手指一滚起来就先停掉主视觉，不等停稳。它是 2160 宽的片子，一边播
+       * 一边跟"故事页标题进场"抢同一帧 —— 从首页往下滑时标题会卡，从后面
+       * 往回滑时视频早就停了，所以怎么滑都顺。
+       * 手停下 180ms 后如果人还停在首页（滚动量没超过 HERO_TOP_MAX），
+       * 视频自己续上；停在别处就一直停着，别在后台白白解码。
+       */
+      const endHeroScroll = () => {
+        heroScrollTimer = 0;
+        heroScrolling = false;
+        syncHeroPlayback();
+      };
+      window.addEventListener("scroll", () => {
+        heroScrolling = true;
+        if (!heroVideo.paused) heroVideo.pause();
+        window.clearTimeout(heroScrollTimer);
+        heroScrollTimer = window.setTimeout(endHeroScroll, HERO_SCROLL_IDLE_MS);
+      }, { passive: true });
     }
 
     homeReturn?.addEventListener("click", scrollToHome);
