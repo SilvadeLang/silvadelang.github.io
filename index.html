@@ -1986,7 +1986,13 @@
        * 这时候必须关掉 CSS 过渡，否则每写一次数值都会再走一遍过渡，画面会糊；
        * will-change 让这两个属性直接走合成，不进主线程重绘。
        */
-      .reveal.is-linked { transition: none; will-change: opacity, transform; }
+      .reveal.is-linked { transition: none; }
+      /*
+       * 合成层只在元素真的要动的那一小段挂上（脚本加 .is-active），
+       * 结束后立刻摘掉。十个大块常驻显存的话，滚动时内存带宽会被吃满，
+       * 反而比不开合成层更卡。
+       */
+      .reveal.is-active { will-change: opacity, transform; }
       .topnav { display: none; }
       /*
        * 三横总目录：灰条右侧的按钮 + 向下展开的跳转面板。
@@ -5738,24 +5744,53 @@
       entry.node.style.removeProperty("transform");
       entry.node.style.removeProperty("transition");
       /* 动画做完再撤合成层，免得刚起步就降级重绘 */
-      window.setTimeout(() => entry.node.classList.remove("is-linked"), 120);
+      window.setTimeout(() => {
+        entry.node.classList.remove("is-linked");
+        entry.node.classList.remove("is-active");
+        entry.active = false;
+      }, 120);
     };
 
     const linkedRevealPending = () => linkedReveal.some((entry) => !entry.done);
 
+    /*
+     * 元素在文档里的位置只在布局变化时量一次，滚动里全部用算术推。
+     * 之前每帧对十个元素调 getBoundingClientRect，iOS 会反复掉进强制布局，
+     * 故事页元素多、结构重，那一下最贵 —— 掉帧就出在这儿。
+     */
+    let linkedViewportH = 0;
+    let linkedMetrics = [];
+
+    const measureLinkedReveal = () => {
+      const scrollY = window.scrollY;
+      linkedViewportH = window.innerHeight || 0;
+      linkedMetrics = linkedReveal.map((entry) => {
+        const rect = entry.node.getBoundingClientRect();
+        return { entry, top: rect.top + scrollY, height: rect.height };
+      });
+    };
+
     const runLinkedReveal = () => {
       linkedFrame = 0;
       const vh = window.innerHeight || 0;
+      /* iOS 地址栏伸缩会改视口高、连带挪动元素，这时候重量一次 */
+      if (Math.abs(vh - linkedViewportH) > 1) measureLinkedReveal();
       const startY = vh * REVEAL_START;
       const span = Math.max(1, vh * (REVEAL_START - REVEAL_END));
+      const scrollY = window.scrollY;
       const steps = [];
       let tracking = false;
-      linkedReveal.forEach((entry) => {
+      linkedMetrics.forEach(({ entry, top: documentTop }) => {
         if (entry.done || entry.settling) return;
-        const top = entry.node.getBoundingClientRect().top;
+        const top = documentTop - scrollY;
         let progress = (startY - top) / span;
         if (progress < 0) progress = 0;
         else if (progress > 1) progress = 1;
+        /* 快进视口时就把合成层挂上，动画做完再摘 */
+        if (top < vh * 1.15 && !entry.active) {
+          entry.active = true;
+          entry.node.classList.add("is-active");
+        }
         /*
          * 只有已经进视口、正在过渡的元素才需要逐帧跟。
          * 页面下方还没露头的元素一律不参与，否则这个 rAF 循环永远停不下来。
@@ -5764,8 +5799,8 @@
         steps.push([entry, progress]);
       });
       /*
-       * 先读完再统一写：上面一轮 getBoundingClientRect 只触发一次布局，
-       * 下面写 opacity / transform 都是合成属性，滚动里不会引起重排。
+       * 上面全是纯算术，下面写 opacity / transform 都是合成属性，
+       * 滚动里既不重排也不重绘。
        */
       steps.forEach(([entry, progress]) => {
         if (progress === entry.progress) return;
@@ -5776,7 +5811,12 @@
         }
         entry.progress = progress;
         entry.node.style.opacity = progress.toFixed(3);
-        entry.node.style.transform = `translate3d(0, ${((1 - progress) * REVEAL_TRAVEL).toFixed(2)}px, 0)`;
+        /*
+         * 位移取整：非整数像素的位移会让浏览器每一帧都重新栅格化文字
+         * （大段落文字最贵），取整之后整层直接挪位置，不用重画。
+         */
+        const shift = Math.round((1 - progress) * REVEAL_TRAVEL);
+        entry.node.style.transform = `translate3d(0, ${shift}px, 0)`;
         if (progress >= 1) finishLinkedReveal(entry);
       });
       if (tracking) linkedFrame = window.requestAnimationFrame(runLinkedReveal);
@@ -5794,11 +5834,14 @@
     const settleLinkedReveal = () => {
       linkedSettleTimer = 0;
       const vh = window.innerHeight || 0;
-      linkedReveal.forEach((entry) => {
+      if (Math.abs(vh - linkedViewportH) > 1) measureLinkedReveal();
+      const scrollY = window.scrollY;
+      linkedMetrics.forEach(({ entry, top: documentTop, height }) => {
         if (entry.done || entry.settling) return;
-        const rect = entry.node.getBoundingClientRect();
-        if (rect.top > vh * REVEAL_START || rect.bottom < 0) return;
+        const top = documentTop - scrollY;
+        if (top > vh * REVEAL_START || top + height < 0) return;
         entry.settling = true;
+        entry.node.classList.add("is-active");
         entry.node.style.transition = "opacity .24s ease, transform .24s ease";
         entry.node.style.opacity = "1";
         entry.node.style.transform = "translate3d(0, 0, 0)";
@@ -5832,12 +5875,20 @@
     });
 
     if (linkedReveal.length) {
+      measureLinkedReveal();
       window.addEventListener("scroll", () => {
         wakeLinkedReveal();
         window.clearTimeout(linkedSettleTimer);
         linkedSettleTimer = window.setTimeout(settleLinkedReveal, 180);
       }, { passive: true });
-      window.addEventListener("resize", wakeLinkedReveal, { passive: true });
+      window.addEventListener("resize", () => {
+        measureLinkedReveal();
+        wakeLinkedReveal();
+      }, { passive: true });
+      /* 字体是自托管的，加载完成后行高会变，位置缓存要跟着重量一次 */
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(measureLinkedReveal).catch(() => {});
+      }
       wakeLinkedReveal();
     }
 
