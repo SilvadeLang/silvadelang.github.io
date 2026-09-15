@@ -186,7 +186,7 @@
     transform: translateZ(0) scale(1.055);
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .topnav a:hover {
+      html:not(.is-touch-input):not(.is-scrolling) .topnav a:hover {
       color: var(--ice);
       transform: translateZ(0) scale(1.055);
       }
@@ -349,7 +349,7 @@
     outline: none;
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .home-return:hover {
+      html:not(.is-touch-input):not(.is-scrolling) .home-return:hover {
       background: var(--ice);
       color: var(--ink);
       outline: none;
@@ -481,7 +481,7 @@
     outline: none;
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .lang-toggle:hover {
+      html:not(.is-touch-input):not(.is-scrolling) .lang-toggle:hover {
       border-color: var(--ice-strong);
       background: var(--ice);
       outline: none;
@@ -694,8 +694,8 @@
     outline: none;
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .story-language:hover,
-      html:not(.is-touch-input) .story-close:hover {
+      html:not(.is-touch-input):not(.is-scrolling) .story-language:hover,
+      html:not(.is-touch-input):not(.is-scrolling) .story-close:hover {
       border-color: var(--ice-strong);
       background: var(--ice);
       outline: none;
@@ -766,8 +766,8 @@
     color: #fff;
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .works .gallery-nav:hover,
-      html:not(.is-touch-input) .works .gallery-arrow:hover:not(:disabled) {
+      html:not(.is-touch-input):not(.is-scrolling) .works .gallery-nav:hover,
+      html:not(.is-touch-input):not(.is-scrolling) .works .gallery-arrow:hover:not(:disabled) {
       border-color: var(--ice-strong);
       background: var(--ice-strong);
       color: #fff;
@@ -800,7 +800,7 @@
     background: rgba(37, 189, 226, .18);
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .works .gallery-index-item:hover {
+      html:not(.is-touch-input):not(.is-scrolling) .works .gallery-index-item:hover {
       border-color: var(--ice-strong);
       background: rgba(37, 189, 226, .18);
       }
@@ -899,7 +899,7 @@
     outline: none;
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .gallery-nav:hover {
+      html:not(.is-touch-input):not(.is-scrolling) .gallery-nav:hover {
       border-color: var(--ice-strong);
       background: var(--ice-strong);
       color: #fff;
@@ -1033,7 +1033,7 @@
     outline: none;
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .gallery-index-item:hover {
+      html:not(.is-touch-input):not(.is-scrolling) .gallery-index-item:hover {
       border-color: rgba(11, 27, 38, .2);
       background: rgba(11, 27, 38, .06);
       outline: none;
@@ -1112,8 +1112,8 @@
     transform: translate(calc(var(--tx, 0px) * 1.55), calc(var(--ty, 0px) * 1.55));
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .suit-set:hover .suit-set-stack img,
-      html:not(.is-touch-input) .suit-set:hover .suit-set-stack-slot {
+      html:not(.is-touch-input):not(.is-scrolling) .suit-set:hover .suit-set-stack img,
+      html:not(.is-touch-input):not(.is-scrolling) .suit-set:hover .suit-set-stack-slot {
       transform: translate(calc(var(--tx, 0px) * 1.55), calc(var(--ty, 0px) * 1.55));
       }
     }
@@ -1193,7 +1193,7 @@
       transition: transform .55s ease;
     }
         @media (hover: hover) {
-      html:not(.is-touch-input) .gallery-tile:hover img { transform: scale(calc(var(--tile-zoom, 1) * 1.06));
+      html:not(.is-touch-input):not(.is-scrolling) .gallery-tile:hover img { transform: scale(calc(var(--tile-zoom, 1) * 1.06));
       }
     }
     .gallery-tile:focus-visible { outline: 2px solid var(--ice-strong); outline-offset: -2px; }
@@ -1290,7 +1290,7 @@
         .gallery-shell[data-layout="wallpaper"] .gallery-tile:focus-visible img { transform: scale(1.045);
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .gallery-shell[data-layout="wallpaper"] .gallery-tile:hover img { transform: scale(1.045);
+      html:not(.is-touch-input):not(.is-scrolling) .gallery-shell[data-layout="wallpaper"] .gallery-tile:hover img { transform: scale(1.045);
       }
     }
         .gallery-shell[data-layout="wallpaper"] .gallery-tile:focus-visible .gallery-tile-open {
@@ -1298,7 +1298,7 @@
     transform: none;
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .gallery-shell[data-layout="wallpaper"] .gallery-tile:hover .gallery-tile-open {
+      html:not(.is-touch-input):not(.is-scrolling) .gallery-shell[data-layout="wallpaper"] .gallery-tile:hover .gallery-tile-open {
       opacity: .95;
       transform: none;
       }
@@ -1401,7 +1401,7 @@
     color: #fff;
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .gallery-overview-toggle:hover {
+      html:not(.is-touch-input):not(.is-scrolling) .gallery-overview-toggle:hover {
       background: rgba(112, 215, 239, .16);
       color: #fff;
       }
@@ -1485,7 +1485,7 @@
     color: #06121a;
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .gallery-overview-close:hover {
+      html:not(.is-touch-input):not(.is-scrolling) .gallery-overview-close:hover {
       border-color: var(--ice-strong);
       background: var(--ice-strong);
       color: #06121a;
@@ -1564,13 +1564,13 @@
         .gallery-overview-item:focus-visible .gallery-overview-thumb img { transform: scale(1.05);
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .gallery-overview-item:hover .gallery-overview-thumb img { transform: scale(1.05);
+      html:not(.is-touch-input):not(.is-scrolling) .gallery-overview-item:hover .gallery-overview-thumb img { transform: scale(1.05);
       }
     }
         .gallery-overview-item:focus-visible .gallery-overview-thumb { border-color: var(--ice-strong);
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .gallery-overview-item:hover .gallery-overview-thumb { border-color: var(--ice-strong);
+      html:not(.is-touch-input):not(.is-scrolling) .gallery-overview-item:hover .gallery-overview-thumb { border-color: var(--ice-strong);
       }
     }
     .gallery-overview-item.is-current .gallery-overview-thumb {
@@ -1708,7 +1708,7 @@
     outline: none;
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .gallery-arrow:hover:not(:disabled) {
+      html:not(.is-touch-input):not(.is-scrolling) .gallery-arrow:hover:not(:disabled) {
       border-color: var(--ice-strong);
       background: var(--ice-strong);
       color: #fff;
@@ -1769,7 +1769,7 @@
         .social-link.is-popover-open { color: var(--ink); background: var(--ice);
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .social-link:hover { color: var(--ink); background: var(--ice);
+      html:not(.is-touch-input):not(.is-scrolling) .social-link:hover { color: var(--ink); background: var(--ice);
       }
     }
     .social-link[data-social="x"] { cursor: default; }
@@ -1794,7 +1794,7 @@
     transform: translateY(0);
     }
     @media (hover: hover) {
-      html:not(.is-touch-input) .social-link[data-social="bilibili"]:hover .social-link-cta {
+      html:not(.is-touch-input):not(.is-scrolling) .social-link[data-social="bilibili"]:hover .social-link-cta {
       opacity: .9;
       transform: translateY(0);
       }
@@ -2198,8 +2198,8 @@
       transform: translate(var(--tx, 0px), var(--ty, 0px));
       }
       @media (hover: hover) {
-        html:not(.is-touch-input) .suit-set:hover .suit-set-stack img,
-        html:not(.is-touch-input) .suit-set:hover .suit-set-stack-slot {
+        html:not(.is-touch-input):not(.is-scrolling) .suit-set:hover .suit-set-stack img,
+        html:not(.is-touch-input):not(.is-scrolling) .suit-set:hover .suit-set-stack-slot {
         transform: translate(var(--tx, 0px), var(--ty, 0px));
         }
       }
@@ -2324,8 +2324,8 @@
        * 卡片会一直放大着不回位。--tile-zoom 是单张图自己的取景倍数，照旧生效。
        */
             @media (hover: hover) {
-        html:not(.is-touch-input) .gallery-tile:hover img,
-        html:not(.is-touch-input) .gallery-shell[data-layout="wallpaper"] .gallery-tile:hover img {
+        html:not(.is-touch-input):not(.is-scrolling) .gallery-tile:hover img,
+        html:not(.is-touch-input):not(.is-scrolling) .gallery-shell[data-layout="wallpaper"] .gallery-tile:hover img {
         transform: scale(var(--tile-zoom, 1));
         }
       }
@@ -2709,14 +2709,14 @@
        */
       .lore-grid .story { margin-top: var(--lore-shift, 0px); }
             @media (hover: hover) {
-        html:not(.is-touch-input) .timeline-story-trigger:hover {
+        html:not(.is-touch-input):not(.is-scrolling) .timeline-story-trigger:hover {
         background: rgba(138, 211, 239, .12);
         }
       }
             @media (hover: hover) {
-        html:not(.is-touch-input) .timeline-story-trigger:hover b,
-        html:not(.is-touch-input) .timeline-story-trigger:hover h3,
-        html:not(.is-touch-input) .timeline-story-trigger:hover p {
+        html:not(.is-touch-input):not(.is-scrolling) .timeline-story-trigger:hover b,
+        html:not(.is-touch-input):not(.is-scrolling) .timeline-story-trigger:hover h3,
+        html:not(.is-touch-input):not(.is-scrolling) .timeline-story-trigger:hover p {
         transform: scale(1.025);
         }
       }
@@ -2838,7 +2838,7 @@
       color: #fff;
       }
       @media (hover: hover) {
-        html:not(.is-touch-input) .gallery-shell[data-level="detail"] .gallery-arrow:hover:not(:disabled) {
+        html:not(.is-touch-input):not(.is-scrolling) .gallery-shell[data-level="detail"] .gallery-arrow:hover:not(:disabled) {
         border-color: var(--ice-strong);
         background: var(--ice-strong);
         color: #fff;
@@ -2855,7 +2855,7 @@
       color: #fff;
       }
       @media (hover: hover) {
-        html:not(.is-touch-input) .gallery-shell[data-level="detail"] .gallery-nav:hover {
+        html:not(.is-touch-input):not(.is-scrolling) .gallery-shell[data-level="detail"] .gallery-nav:hover {
         border-color: var(--ice-strong);
         background: var(--ice-strong);
         color: #fff;
@@ -2874,7 +2874,7 @@
         border-radius: 999px;
       }
             @media (hover: hover) {
-        html:not(.is-touch-input) .gallery-rail::-webkit-scrollbar-thumb:hover { background: rgba(11, 27, 38, .7);
+        html:not(.is-touch-input):not(.is-scrolling) .gallery-rail::-webkit-scrollbar-thumb:hover { background: rgba(11, 27, 38, .7);
         }
       }
 
@@ -6012,6 +6012,27 @@
     const socialPopoverLinks = [...document.querySelectorAll(".social-link[data-social='qq'], .social-link[data-social='others']")];
     const socialHoverQuery = window.matchMedia("(hover: hover) and (pointer: fine) and (min-width: 801px)");
     let socialCloseTimer = 0;
+    /*
+     * 滚动期间弹窗的规矩（配合下面的 markScrolling）：
+     *  · 已经在开的：一滚动就收掉，别让它跟着卡片一起飞；
+     *  · 滚动中指针扫过卡片：先记下来，页面停稳后指针还在卡上才补开。
+     * 这两条都只在桌面鼠标档（socialHoverQuery）生效，手机端的点击开合不受影响。
+     */
+    let pendingSocialLink = null;
+    function closeSocialPopoversOnScroll() {
+      if (!socialHoverQuery.matches) return;
+      socialPopoverLinks.forEach((item) => {
+        if (item.classList.contains("is-popover-open")) setSocialPopover(item, false);
+      });
+    }
+    function openPendingSocialPopover() {
+      const link = pendingSocialLink;
+      pendingSocialLink = null;
+      if (!link || !socialHoverQuery.matches) return;
+      if (document.documentElement.classList.contains("is-scrolling")) return;
+      if (!link.matches(":hover")) return;
+      setSocialPopover(link, true);
+    }
 
     const closeSocialPopovers = (except = null) => {
       socialPopoverLinks.forEach((link) => {
@@ -6067,7 +6088,13 @@
     socialPopoverLinks.forEach((link) => {
       const popover = link.querySelector(".social-popover");
       link.addEventListener("pointerenter", () => {
-        if (socialHoverQuery.matches) setSocialPopover(link, true);
+        if (!socialHoverQuery.matches) return;
+        /* 翻页 / 滚动过程中指针会扫过卡片，这时先记下，等页面停稳再开 */
+        if (document.documentElement.classList.contains("is-scrolling")) {
+          pendingSocialLink = link;
+          return;
+        }
+        setSocialPopover(link, true);
       });
       link.addEventListener("pointerleave", () => {
         if (socialHoverQuery.matches) {
@@ -6324,6 +6351,28 @@
     document.addEventListener("touchstart", () => {
       touchInputRoot.classList.add("is-touch-input");
     }, { passive: true, capture: true });
+    /*
+     * 滚动期间冻结悬停：悬停规则的第二道开关是 html:not(.is-scrolling)。
+     * 翻页（滚轮 / 导航点击 / 回首页）时指针多半正压在某张卡或某个标签上，
+     * 不拦的话会一边飞一边触发放大、变蓝，观感很吵；停稳 180ms 再放行。
+     * 只挂 class，不动任何布局，所以静止时的画面和以前逐像素一致。
+     */
+    const SCROLL_HOVER_IDLE_MS = 180;
+    const scrollHoverRoot = document.documentElement;
+    let scrollHoverTimer = 0;
+    const markScrolling = () => {
+      /* 刚开始滚的那一下：把社交页开着的弹窗先收掉 */
+      if (!scrollHoverRoot.classList.contains("is-scrolling")) closeSocialPopoversOnScroll();
+      scrollHoverRoot.classList.add("is-scrolling");
+      window.clearTimeout(scrollHoverTimer);
+      scrollHoverTimer = window.setTimeout(() => {
+        scrollHoverRoot.classList.remove("is-scrolling");
+        openPendingSocialPopover();
+      }, SCROLL_HOVER_IDLE_MS);
+    };
+    /* 翻页动画走的是 window.scrollTo 循环，scroll 事件会跟着来，所以这两条就够 */
+    window.addEventListener("wheel", markScrolling, { passive: true });
+    window.addEventListener("scroll", markScrolling, { passive: true });
     /*
      * 按下反馈：这部分浏览器差异太大（有些手机不给 :active），
      * 干脆自己给按到的按钮加 .is-tapping，抬手后摘掉，
