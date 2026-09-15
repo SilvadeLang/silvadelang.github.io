@@ -1993,6 +1993,31 @@
        * 反而比不开合成层更卡。
        */
       .reveal.is-active { will-change: opacity, transform; }
+      /*
+       * 故事页的标题和正文是整站字最密的两个块（两行大字 + 中英八百字）。
+       * 让它俩自己一路半透明，iOS 每帧都得重新渲染这一大片字形，怎么减负
+       * 都救不回来 —— 同页的三栏字少，就一路正常。改成文字本身始终不透明、
+       * 一次画好，上面盖一层和页面底色相同的实心遮罩，由遮罩淡出：
+       * 每帧只动一个纯色矩形，文字再也不参与。
+       */
+      .lore .section-heading.is-linked,
+      .lore .story.is-linked {
+        position: relative;
+        opacity: 1;
+      }
+      .lore .section-heading.is-linked::after,
+      .lore .story.is-linked::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--paper);
+        opacity: var(--reveal-veil, 1);
+        pointer-events: none;
+      }
+      .lore .section-heading.is-settling::after,
+      .lore .story.is-settling::after {
+        transition: opacity .24s ease;
+      }
       .topnav { display: none; }
       /*
        * 三横总目录：灰条右侧的按钮 + 向下展开的跳转面板。
@@ -5740,6 +5765,8 @@
     const finishLinkedReveal = (entry) => {
       entry.done = true;
       entry.node.classList.add("is-visible");
+      /* 遮罩先退干净，再摘 is-linked（伪元素是它的，摘早了会闪） */
+      if (entry.veil) entry.node.style.setProperty("--reveal-veil", "0");
       entry.node.style.removeProperty("opacity");
       entry.node.style.removeProperty("transform");
       entry.node.style.removeProperty("transition");
@@ -5747,6 +5774,7 @@
       window.setTimeout(() => {
         entry.node.classList.remove("is-linked");
         entry.node.classList.remove("is-active");
+        entry.node.classList.remove("is-settling");
         entry.active = false;
       }, 120);
     };
@@ -5810,7 +5838,12 @@
           return;
         }
         entry.progress = progress;
-        entry.node.style.opacity = progress.toFixed(3);
+        if (entry.veil) {
+          /* 遮罩越淡，底下的文字越清楚；文字本身从头到尾都是不透明的 */
+          entry.node.style.setProperty("--reveal-veil", (1 - progress).toFixed(3));
+        } else {
+          entry.node.style.opacity = progress.toFixed(3);
+        }
         /*
          * 位移取整：非整数像素的位移会让浏览器每一帧都重新栅格化文字
          * （大段落文字最贵），取整之后整层直接挪位置，不用重画。
@@ -5842,8 +5875,13 @@
         if (top > vh * REVEAL_START || top + height < 0) return;
         entry.settling = true;
         entry.node.classList.add("is-active");
-        entry.node.style.transition = "opacity .24s ease, transform .24s ease";
-        entry.node.style.opacity = "1";
+        if (entry.veil) {
+          entry.node.classList.add("is-settling");
+          entry.node.style.setProperty("--reveal-veil", "0");
+        } else {
+          entry.node.style.transition = "opacity .24s ease, transform .24s ease";
+          entry.node.style.opacity = "1";
+        }
         entry.node.style.transform = "translate3d(0, 0, 0)";
         window.setTimeout(() => finishLinkedReveal(entry), 260);
       });
@@ -5867,8 +5905,12 @@
        */
       const onFirstScreen = item.getBoundingClientRect().top < (window.innerHeight || 0);
       if (revealMobileQuery.matches && !onFirstScreen) {
+        /*
+         * 故事页标题和正文改用"实心遮罩淡出"，其余元素维持原来的透明度动画。
+         */
+        const veiled = item.matches(".lore .section-heading, .lore .story");
         item.classList.add("is-linked");
-        linkedReveal.push({ node: item, done: false, progress: -1 });
+        linkedReveal.push({ node: item, done: false, progress: -1, veil: veiled });
         return;
       }
       observer.observe(item);
