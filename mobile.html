@@ -48,13 +48,26 @@
         #080d12;
     }
     .preview-shell {
-      width: min(100%, 390px);
+      /*
+       * 预览壳 = 一块 iPhone 16 Pro 的屏幕：402 × 874（逻辑像素）。
+       * iframe 永远按 402 × 874 布局，这样里面的响应式断点、字号、折行
+       * 跟真机一模一样；窗口放不下时只用 transform 整体等比缩小。
+       * 不能改 iframe 的布局尺寸 —— 压窄会变成"更小号的手机"，
+       * 压低会让 100svh 变小、一屏看到的内容比真机少一截。
+       * --k 由页面末尾的脚本按可用空间算，1 = 原始大小。
+       */
+      --k: 1;
+      width: min(100%, calc(402px * var(--k)));
     }
     .preview-label {
       display: flex;
       justify-content: space-between;
       gap: 1rem;
-      margin: 0 0 .75rem;
+      /* 预览框现在按真机比例走，可能比这行字还窄：让它自己撑开、居中，别折行 */
+      width: max-content;
+      max-width: calc(100vw - 4rem);
+      margin: 0 auto .75rem;
+      white-space: nowrap;
       color: #92a6b2;
       font-size: .7rem;
       letter-spacing: .12em;
@@ -62,20 +75,27 @@
     }
     .preview-label a { color: #70d7ef; text-decoration: none; }
     .phone {
+      position: relative;
       width: 100%;
-      height: min(844px, calc(100svh - 5rem));
-      min-height: 620px;
+      aspect-ratio: 402 / 874;
       overflow: hidden;
-      border: 1px solid rgba(181, 210, 225, .35);
       border-radius: 18px;
       background: #071017;
-      box-shadow: 0 24px 80px rgba(0, 0, 0, .5);
+      /* 用 box-shadow 画边框：不吃盒子的尺寸，缩放时 iframe 才能正好铺满 */
+      box-shadow:
+        0 0 0 1px rgba(181, 210, 225, .35),
+        0 24px 80px rgba(0, 0, 0, .5);
     }
-    iframe {
-      width: 100%;
-      height: 100%;
+    .phone iframe {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 402px;
+      height: 874px;
       display: block;
       border: 0;
+      transform-origin: 0 0;
+      transform: scale(var(--k));
     }
     @media (max-width: 520px) {
       body { display: block; padding: 0; }
@@ -86,6 +106,16 @@
         min-height: 0;
         border: 0;
         border-radius: 0;
+        box-shadow: none;
+      }
+      .phone {
+        aspect-ratio: auto;
+      }
+      .phone iframe {
+        position: static;
+        width: 100%;
+        height: 100%;
+        transform: none;
       }
     }
   </style>
@@ -112,5 +142,40 @@
       <iframe src="index.html" title="Silvade mobile portrait preview"></iframe>
     </div>
   </main>
+  <script>
+    /*
+     * 缩放系数：能放下就 1:1，放不下就等比缩小到刚好占满可用空间。
+     * 只改显示尺寸（transform），iframe 的布局尺寸始终是 402 × 874。
+     */
+    (function () {
+      const shell = document.querySelector(".preview-shell");
+      const label = document.querySelector(".preview-label");
+      const PHONE_W = 402;
+      const PHONE_H = 874;
+      let lastK = -1;
+      function fit() {
+        if (window.matchMedia("(max-width: 520px)").matches) return;
+        const body = getComputedStyle(document.body);
+        const labelBox = getComputedStyle(label);
+        const availW = document.documentElement.clientWidth
+          - parseFloat(body.paddingLeft) - parseFloat(body.paddingRight);
+        const labelH = label.getBoundingClientRect().height
+          + parseFloat(labelBox.marginTop) + parseFloat(labelBox.marginBottom);
+        const availH = window.innerHeight
+          - parseFloat(body.paddingTop) - parseFloat(body.paddingBottom) - labelH;
+        const k = Math.min(1, availW / PHONE_W, availH / PHONE_H);
+        if (Math.abs(k - lastK) < 0.002) return;
+        lastK = k;
+        shell.style.setProperty("--k", String(Math.max(k, 0.15)));
+      }
+      fit();
+      window.addEventListener("resize", fit);
+      /* 字体加载完、行高定下来之后标签高度会变，重算一次才不会顶出窗口 */
+      window.addEventListener("load", fit);
+      if (window.ResizeObserver) new ResizeObserver(fit).observe(label);
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+      setTimeout(fit, 400);
+    })();
+  </script>
 </body>
 </html>

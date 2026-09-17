@@ -205,6 +205,13 @@
       display: grid;
       align-items: end;
       isolation: isolate;
+      /*
+       * 接缝（2026-09-17）：底部一小段渐隐到透明，露出底下 #poly-span 那张冰墙。
+       * 首页底边和故事页顶边因此是同一层连续画面，翻页时不再有横向硬边。
+       * 渐隐带控制在下限 40px，是为了不碰右下角竖排的 .scroll-cue（它 bottom: 2.7rem）。
+       */
+      -webkit-mask-image: linear-gradient(to top, transparent 0, #000 clamp(40px, 5.5vh, 80px));
+      mask-image: linear-gradient(to top, transparent 0, #000 clamp(40px, 5.5vh, 80px));
       background:
         radial-gradient(circle at 68% 28%, rgba(77, 186, 218, .15), transparent 27rem),
         linear-gradient(115deg, rgba(5, 12, 18, .98) 0%, rgba(8, 19, 27, .8) 44%, rgba(8, 19, 27, .34) 100%);
@@ -241,6 +248,27 @@
       background: linear-gradient(0deg, var(--ink) 0%, transparent 28%), linear-gradient(135deg, rgba(112, 215, 239, .14), transparent 30%);
       pointer-events: none;
     }
+    /*
+     * 首页下缘的"接缝色"（2026-09-17）
+     * 首页底边靠 .hero 上的 mask 渐隐、直接接上 #poly-span 的冰墙；这一块负责把首页
+     * 下半截整体染成"当前该有的底色"（和冰墙同一套插值），免得渐隐带上方还是一整片
+     * 深色、到最底才突然变浅。常驻 opacity:0，静止时和以前完全一样，值由页尾脚本写。
+     * 尾页上缘不用这种色块：冰墙的底色自己会从兽装页渐变过去，留色块反而会盖住右边的冰。
+     */
+    .hero-wash {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0;
+      /* 滚动时这块每帧只改透明度；提成合成层，别让 hero 每次都重新光栅化 */
+      will-change: opacity;
+    }
+    .hero-wash { background: linear-gradient(0deg, var(--paper) 0%, rgba(238, 243, 246, 0) 30%); }
+    /* 这两块里的内容要压在"接缝色"上面 */
+    .hero-content,
+    .scroll-cue { z-index: 1; }
+    .hero-content { position: relative; }
     .hero-content {
       width: min(1250px, 100%);
       margin: 0 auto;
@@ -373,12 +401,106 @@
       }
     }
     .section {
+      position: relative;
+      isolation: isolate;
       min-height: 100svh;
       display: grid;
       align-items: center;
       padding: clamp(3.5rem, 7vw, 5.8rem) clamp(1.3rem, 6vw, 6rem);
     }
     .section-inner { width: min(1250px, 100%); margin: 0 auto; }
+
+    /*
+     * v2.0 连续背景层（2026-09-16 起，2026-09-17 桌面端换成"冰墙"）
+     *
+     * 桌面档（ice）：一整层钉在视口上、贴着右下角，里面是一块 1536×703 的 SVG 画板
+     *   （等比放大：宽度 = 视口高 × 1536/703）。画板里铺的是右下角那道双曲线楔形的碎冰，
+     *   它们沿等值线向右上推进、边缘持续轻微蠕动；整层的底色随页码在五套调色板之间渐变。
+     *   几何、配色、推进全在脚本里现场算（见页尾 poly-span 段），参数收在脚本开头几个常量里。
+     * 手机档（flat）：整层是 display:none，各页只有自己的纯色（v1.3 的硬分界），
+     *   底色由脚本直接写在每一节上（见 paintBands），滚动过程里一帧 JS 都不跑。
+     *
+     * 性能红线：只用纯色 polygon，不做 filter / blur / 阴影；绘制路径里不读布局，
+     * 混色结果预先查表，停下时这一层一帧都不重画。
+     */
+    main { position: relative; }
+    .poly-bg {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      overflow: hidden;
+      pointer-events: none;
+      /* 提成合成层：碎冰每帧重画，不提层的话每次都要连底下的页面一起重绘 */
+      will-change: transform;
+      z-index: 0;
+      contain: paint;
+    }
+    .poly-bg svg {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    /*
+     * 桌面档（ice）：整层钉在视口上，高度走 100lvh —— 地址栏收放时它不动，
+     * 冰墙的宽度是拿这个高折算的，一收一放整片冰跟着缩放就露馅了。
+     * 画板靠右对齐，左边留白（比画板窄的视口就是裁掉左边那一截）。
+     */
+    .poly-bg.is-ice {
+      position: fixed;
+      top: 0;
+      height: 100lvh;
+      background: #071017;   /* 首帧之前的兜底色，之后由脚本按页码写 */
+    }
+    .poly-bg.is-ice svg {
+      left: auto;
+      right: 0;
+      /* 宽度由脚本按"视口高 × 1536/703"算好写进来；比视口窄就露出左边的底色 */
+      height: 100%;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .poly-bg { will-change: auto; }
+    }
+    /*
+     * 手机档静态底色（2026-09-17 定稿）
+     *
+     * 前三版都在"两块 fixed 全屏层 / 整页渐变背景"上打转，真机上还是卡。回头看，
+     * 手机端掉帧的地方大概不是 JS，是光栅化本身：整页那么大的渐变，每个新进屏的瓦片
+     * 都得走一遍渐变着色器 —— "第一次滑动"（地址栏收放，整屏重光栅）和"划得够快"
+     * （一帧进好几个新瓦片）正好都撞在这上面；点导航跳页只重画一次，所以不卡。
+     *
+     * 最后一版把手机端的"贵东西"全拆掉，回到 v1.3 的硬分界：
+     *   · 每页 = 一块纯色（填色里最便宜的那种），页面之间没有过渡带；
+     *   · #poly-span 整层 display:none —— 色块、冰墙、变形在手机上一律不画；
+     *   · .hero 的 mask 在手机档没有视觉作用（渐隐露出来的是 body 的 #071017，
+     *     和 .hero::after 的 --ink 同色），却要让整屏视频 + 遮罩走离屏合成 —— 关掉；
+     *   · .hero-wash 是桌面用的接缝色，手机档恒为 opacity:0，但 will-change 让它一直
+     *     挂着一个整屏合成层 —— 关掉。
+     * 滚动过程里依旧一次 JS 都不跑（只有尾页水印那一下 class 切换）。
+     */
+    @media (max-width: 800px) {
+      #poly-span { display: none; }
+      /* 首页底部 mask 渐隐露出来的是 body 底色，给它首页那一档，静止时和以前一样 */
+      body { background: #071017; }
+      /* 右下角圆钮是站内最后一块 backdrop-filter：iOS 收 / 放地址栏时得重算整屏背景模糊 */
+      .home-return { backdrop-filter: none; background: rgba(7, 16, 23, .86); }
+      .hero { -webkit-mask-image: none; mask-image: none; }
+      .hero-wash { display: none; }
+      /*
+       * 尾页顶上那层 20vh 的桌面接缝渐变（桌面档由脚本清成 none、交给冰墙，
+       * 见 .social 那段注释），手机档同样置掉，回到硬分界。
+       * 选择器写成 .section.social：那条桌面规则在样式表里排在后面，
+       * 同等权重会被它盖回来。
+       */
+      .section.social { background-image: none; }
+      /*
+       * 2026-09-17：手机档回到 v1.3 的硬分界——每页只有自己的纯色，
+       * 页与页之间不再有接缝渐变带（--seam-from / .seam-live / .seam-live::before
+       * 这一套整体退役，脚本里对应的 syncSeam 也一并删掉）。
+       */
+    }
     .section-kicker {
       color: var(--ice-strong);
       font-size: .68rem;
@@ -404,7 +526,8 @@
 
     .lore {
       color: var(--ink);
-      background: var(--paper);
+      /* 底色由跨五页的 .poly-bg 层提供（v2.0）：桌面是冰墙，手机由脚本写纯色 */
+      background: transparent;
     }
     .lore .section-heading {
       margin-top: clamp(2.4rem, 5vh, 4.6rem);
@@ -779,7 +902,8 @@
       transform: translateY(.45rem);
     }
 
-    .works { background: #0d151d; }
+    /* 底色由跨五页的 .poly-bg 层提供（v2.0）：桌面是冰墙，手机由脚本写纯色 */
+    .works { background: transparent; }
     .works .section-heading p { color: #8b9aa4; }
 
     /* 稿件页是深底，相册控件改用浅色版本（底色不变） */
@@ -846,7 +970,8 @@
 
     .suit {
       color: var(--ink);
-      background: #d7e0e5;
+      /* 底色由跨五页的 .poly-bg 层提供（v2.0）：桌面是冰墙，手机由脚本写纯色 */
+      background: transparent;
     }
 
     /*
@@ -901,8 +1026,31 @@
     .gallery-rail > * { scroll-snap-align: start; }
 
     /*
+     * 隐形预热层（见 warmGalleryCovers）：
+     * 首次翻到委托页 / 兽装页时，堆叠封面图要在那一瞬间完成"解码 + 上传显存"，
+     * 表现就是翻页过半、堆叠刚露头时卡一下。这里在首页空闲时用一批
+     * 0.4% 透明度的副本先把它们画一遍——肉眼不可见，但纹理已经备好。
+     * 2026-09-17：按用户要求加回来（当天早些时候删过一次）。
+     */
+    .gallery-warm {
+      position: fixed;
+      left: 0;
+      top: 0;
+      overflow: hidden;
+      opacity: .004;
+      pointer-events: none;
+      z-index: 7;
+      contain: strict;
+    }
+
+    /*
      * 左上角固定圆形按钮：第一层是三横杠（打开相册目录），
      * 第二、三层渐变为返回箭头，尺寸和位置全程不变。
+     *
+     * 2026-09-17：这里和下面的箭头、目录框都不再用 backdrop-filter。
+     * 翻页第一次进委托页 / 兽装页时，这几个控件的毛玻璃要现场把背景读出来做模糊，
+     * 实测是那一下卡顿的大头（2K 下关掉后 ~96ms → ~35ms）。它们底色本来就是
+     * 90% 以上不透明的，去掉模糊肉眼几乎看不出区别。
      */
     .gallery-nav {
       position: absolute;
@@ -919,8 +1067,11 @@
       background: rgba(238, 243, 246, .92);
       color: #16262f;
       cursor: pointer;
-      backdrop-filter: blur(10px);
-      transition: background .2s ease, color .2s ease, border-color .2s ease;
+      /*
+       * opacity 是给手机端"二 / 三层来回切，返回键淡出 → 落位 → 淡入"用的（见 .is-nav-shift）：
+       * 两个位置差多少跟机身高度有关，直接挪过去就是原地跳一下。
+       */
+      transition: background .2s ease, color .2s ease, border-color .2s ease, opacity .18s ease;
     }
         .gallery-nav:focus-visible {
     border-color: var(--ice-strong);
@@ -995,7 +1146,6 @@
       background: rgba(240, 245, 248, .97);
       border: 1px solid rgba(11, 27, 38, .16);
       box-shadow: 0 22px 48px rgba(11, 27, 38, .2);
-      backdrop-filter: blur(12px);
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
@@ -1715,7 +1865,6 @@
       font-size: 1.05rem;
       line-height: 1;
       cursor: pointer;
-      backdrop-filter: blur(10px);
       transition: background .18s ease, color .18s ease, border-color .18s ease, opacity .22s ease;
     }
     .gallery-arrow[data-gallery-prev] { grid-column: 1; }
@@ -1762,11 +1911,19 @@
 
     .social {
       position: relative;
-      background: #080d12;
+      /*
+       * 接缝（2026-09-17）：顶边不直接压深色，先留一段渐入。
+       * 桌面档实际交给冰墙自己渐变（脚本把这条 background-image 清成 none），
+       * 留着它是两层兜底：JS 跑起来之前的首帧，以及冰墙没搭起来时（见页尾 catch）。
+       * 段长给到 20vh 起步，是因为 40px 那种短过渡在大屏上看着仍像一条边。
+       */
+      background: linear-gradient(180deg, rgba(8, 13, 18, 0) 0, #080d12 clamp(110px, 20vh, 230px));
       padding-bottom: 7rem;
     }
-    .social::before {
-      content: "SILVADE";
+    /* 尾页上缘的接缝靠上面 background 那两条停点，见 .social 那段注释 */
+    .social > .section-inner { position: relative; z-index: 1; }
+    .social .social-watermark { z-index: 1; }
+    .social-watermark {
       position: absolute;
       top: 1rem;
       right: -2rem;
@@ -1776,6 +1933,20 @@
       letter-spacing: .12em;
       white-space: nowrap;
       pointer-events: none;
+      /*
+       * 上滑入场：比别的 .reveal 浮入走得更远、起步更快（前 1/3 时间就走完大半），
+       * 总时长 900ms 和翻页那 920ms 基本同步，页一进来就跟着上来。
+       * 2026-09-17：行程从 3.4rem 放到 7rem —— 之前字太大、行程太短，
+       * 一眼看过去跟"直接出现在那儿"没区别。
+       */
+      transform: translate3d(0, 7rem, 0);
+      opacity: 0;
+      will-change: transform, opacity;
+      transition: transform 900ms cubic-bezier(.12, .84, .22, 1), opacity 480ms ease-out;
+    }
+    .social-watermark.is-in {
+      transform: translate3d(0, 0, 0);
+      opacity: 1;
     }
     .social-grid {
       position: relative;
@@ -1961,6 +2132,8 @@
         bottom: clamp(1rem, 2.6vh, 1.9rem);
         max-width: 1250px;
         margin: 0 auto;
+        /* 压在 .section-inner（z-index:1）之上，免得内容长的时候被盖住 */
+        z-index: 2;
       }
     }
 
@@ -2445,14 +2618,16 @@
       }
       .gallery-slide { flex: 0 0 100%; }
       /*
-       * 手机端第三层（灯箱）：固定成竖向 3:4 的取景框，
+       * 手机端第三层（灯箱）：固定成竖向 7:10 的取景框，
        * 不管原图多高多长都只占这一屏高度，页面长度不再跟着图片比例变。
        * 过于细长的图会在框内整体缩小（contain，不裁不拉伸），需要看细节时双指放大。
+       * 2026-09-17 二轮：3:4 → 7:10，同一宽度下框高多约 7%，竖图能多吃一点纵向；
+       * 屏幕不够高时下面那条 max-height 会先把高度收回来，不会把图片顶到画师行上。
        */
       /* 选择器带上 .gallery-shell 才能盖过 .works 里的深色描边，彻底去掉灰框 */
       .gallery-shell .gallery-slide-image {
         height: auto;
-        aspect-ratio: 3 / 4;
+        aspect-ratio: 7 / 10;
         /* 灯箱里不要灰底和描边，避免固定比例后露出灰框 */
         background: transparent;
         border-color: transparent;
@@ -2467,7 +2642,28 @@
         object-fit: contain;
       }
       .gallery-arrow { display: none; }
+      /*
+       * 从灯箱退回第二层时不重播缩略图的入场动画：
+       * 几十张缩略图同时起 animation（0.52s + 每张 26ms 错峰）会占住主线程一秒多，
+       * 返回键那一下淡入淡出正好撞在上面（用户报"三层返回二层掉帧、二层进三层没事"）。
+       * 只有"从灯箱回来"这一条路会挂这个类，从堆叠进第二层照旧播动画。
+       */
+      .gallery-shell.is-no-tile-intro .gallery-tile { animation: none; }
+      /*
+       * 手机端返回键：钉在自己这层壳的左上角（位置差由壳自己负责，见下面 detail 那几条）。
+       * 2026-09-17 起二 / 三层不再强求同高：灯箱整体上移之后，按钮跟着壳顶走更自然；
+       * 两层之间那一下位置变化由 .is-nav-shift 的淡出 / 淡入盖过去（JS 里 shiftGalleryNav）。
+       */
       .gallery-nav { top: .35rem; left: .35rem; }
+      /* 灯箱那层：按钮跟着整壳上提之后再贴到壳顶，比第二层的落点再高小半格 */
+      .gallery-shell[data-level="detail"] .gallery-nav { top: 0; }
+      /*
+       * 二 / 三层互切时的淡出淡入。
+       * 这个类现在只当"这段动画在跑"的标记和兜底（不支持的浏览器回落到 CSS transition 的写法），
+       * 真正的淡入淡出交给合成器跑（WAAPI，见 JS 里的 shiftGalleryNav）——3→2 那一拍主线程忙，
+       * CSS transition 每一帧都得主线程出牌，正好卡在那儿。
+       */
+      .gallery-nav.is-nav-shift { opacity: 0; will-change: opacity; }
       .gallery-index { top: 3.5rem; left: .35rem; }
       /* 手机端第三层改用左右箭头，不再显示滑动条 */
       .gallery-shell[data-level="detail"] .gallery-arrow {
@@ -2495,6 +2691,33 @@
       .gallery-shell[data-level="detail"] .gallery-rail::-webkit-scrollbar {
         display: none;
         height: 0;
+      }
+      /*
+       * 手机端第三层灯箱（2026-09-17）：
+       * 以前它跟着"标题以下那块"垂直居中，而那块高度是按 100lvh 算的（Safari 收起工具栏那一档）。
+       * 地址栏露着的时候可视区只有 100svh，居中的结果就是整个灯箱偏低：返回键离标题一大截，
+       * 底下画师那行和状态行正好压在下工具栏底下。现在改成三段定位：
+       *   1) 相册壳不再居中，钉在标题下面（负 margin 借一点标题自己的下边距，返回键上方留白收掉）；
+       *   2) 灯箱里框顶的留白从 4.1rem（那是给第一 / 第二层两行按钮留的）收到 3rem，刚好够放返回键；
+       *   3) 图片框高度用 100svh 封顶 —— 宁可把图缩小（contain，不裁不拉伸），
+       *      也不让下面两行字掉到 Safari 的底栏底下。矮机身 / 折叠屏封顶生效，正常机身量不到这条。
+       */
+      .works .gallery-shell[data-level="detail"],
+      .suit .gallery-shell[data-level="detail"] {
+        align-self: start;
+        /* 2026-09-17 二轮：整组再上提 0.9rem（返回键、图片区、画师行一起），给图框腾上下两头 */
+        margin-top: -1.5rem;
+      }
+      .gallery-shell[data-level="detail"] .gallery-rail { padding-top: 3rem; }
+      .gallery-shell[data-level="detail"] .gallery-slide-image {
+        /* 宽度始终撑满一屏（图在里面居中 contain），封顶只收高度，别让框缩成一条窄条 */
+        width: 100%;
+        /*
+         * 封顶跟着壳顶一起松 0.6rem：壳上提之后图片下方那摞（画师行 + 状态行）整条也上移了，
+         * 松出来的这点高度正好还给图片。18.4rem 是照 iPhone 16 Pro 那档（100svh ≈ 775）量的：
+         * 状态行底部离底工具栏还留 8~9px，不会再被盖住。
+         */
+        max-height: calc(100svh - 18.4rem);
       }
       .suit .section-heading h2,
       .works .section-heading h2,
@@ -2919,7 +3142,13 @@
        * 图片大幅放大，其余界面（标题、导航、状态行等）被压在暗色层下面。
        */
       /* 灯箱态下，所在 section 成为定位父级（两个相册页共用） */
-      .is-gallery-focus { position: relative; }
+      /*
+       * v2.0 给 .section 加了 isolation: isolate（背景层用），
+       * 灯箱 shell 的 z-index:30 就被关在 section 里，反而被 z-index:10 的顶部灰条盖住，
+       * 返回按钮和灰条文字叠在一起。这里把灯箱态的整个 section 提到灰条（10）
+       * 和回首页按钮（12）之上，恢复 v1.3 的观感。
+       */
+      .is-gallery-focus { position: relative; z-index: 40; }
       .is-gallery-focus .gallery-shell {
         position: absolute;
         inset: 0;
@@ -3152,10 +3381,20 @@
     </header>
 
     <main id="top">
+      <!--
+        v2.0 背景层：一块背景横跨 首页 → 尾页 五页。
+        桌面端是右下角的"冰墙"（画板 1536×703、贴右下角，几何与配色都由脚本现场算，
+        见页尾 poly-span 段）；手机端只剩"每页整块底色"，色块和冰墙全部关掉
+        （2026-09-17 起，竖屏带不动那一套）。
+      -->
+      <div class="poly-bg" id="poly-span" aria-hidden="true">
+        <svg class="poly-board" viewBox="0 0 1536 703" preserveAspectRatio="none"></svg>
+      </div>
       <section class="hero">
         <video class="hero-video" id="hero-video" autoplay muted playsinline webkit-playsinline preload="metadata" aria-hidden="true">
           <source src="assets/hero-silvade.mp4" type="video/mp4">
         </video>
+        <div class="hero-wash" aria-hidden="true"></div>
         <div class="hero-content reveal">
           <div class="eyebrow">Character Archive / Ice and Neon</div>
           <h1>锡尔维德<span>Silvade · Hunter of <span class="hero-sub-line">Icefield and Skyline</span></span></h1>
@@ -3341,6 +3580,7 @@
       </section>
 
       <section class="section social" id="elsewhere">
+        <span class="social-watermark" aria-hidden="true">SILVADE</span>
         <div class="section-inner">
           <div class="section-heading reveal">
             <div>
@@ -3387,15 +3627,22 @@
             <span>Designed for a quiet, blue-edged world.</span>
             <span class="footer-sign">
               <!-- 最近更新日期：以后每次改完站点顺手把这里改成当天（日/月/年） -->
-              <span>Last updated 15/09/2026 · v1.3</span>
+              <span>Last updated 17/09/2026 · v2.0</span>
               <img class="footer-signature" src="assets/silvade-signature.png" alt="Silvade 签名" width="600" height="328" loading="lazy" decoding="async">
             </span>
           </footer>
-          <p class="site-legal">
-            <span>作品版权归作者所有，仅作展示，禁止转载/商用。</span>
-            <span class="site-legal-en">All works remain the property of their authors. Display only — reposting and commercial use are prohibited.</span>
-          </p>
         </div>
+        <!--
+          版权声明（2026-09-17）
+          必须是 .section 的直接子元素：桌面档靠 position:absolute 钉在尾页最底端，
+          而 .social > .section-inner 为了压住背景大字是 position:relative 的 ——
+          放在里面的话，定位基准就变成"内容块"而不是"整页"，这行字会跟着内容
+          一起浮到页面中间去。手机档它走正常文档流，放在这儿位置和以前一样。
+        -->
+        <p class="site-legal">
+          <span>作品版权归作者所有，仅作展示，禁止转载/商用。</span>
+          <span class="site-legal-en">All works remain the property of their authors. Display only — reposting and commercial use are prohibited.</span>
+        </p>
       </section>
     </main>
   </div>
@@ -3720,6 +3967,16 @@
       const galleryOverviewClose = fursuitGallery.querySelector("[data-gallery-overview-close]");
       const photoPath = (setId, index, size) =>
         `${galleryConfig.base}/${setId}/${size}/${String(index).padStart(2, "0")}.jpg`;
+      /*
+       * 提前解码过的封面元素留在这里（见 buildGallerySets 里的 prefetchStackCovers）。
+       * 数组得挂在这一层作用域上，不然预取那一波跑完就被回收，解码结果也跟着没了。
+       */
+      const coverCache = [];
+      /*
+       * 预取 / 预热现在的放行信号是"翻到故事页的动画结束"（silvade:page-ready，
+       * 由 turnToPage 派发），不再看首页视频的 canplay —— 视频一能播就该一口气放完，
+       * 后台那几兆缩略图的下载 + 解码挤在它开头一两秒里，视频就会卡一下（2026-09-17）。
+       */
       const creditFor = (set, index) =>
         (Array.isArray(set.credits) ? set.credits[index - 1] : null) || null;
       /* 第三层图片下方那行固定文字（画师 / 合委人） */
@@ -3998,6 +4255,63 @@
           window.setTimeout(prefetchFirstTiles, 1400);
         }
 
+        /*
+         * 第一层封面的提前解码（桌面端专用，2026-09-17 按用户要求加回来）。
+         * 翻到委托页 / 兽装页时的那一下停顿，有一半是十几个封面正好在同一瞬间进入视口开始解码；
+         * 这里用最低优先级把这批封面挨个拉一遍，
+         * 拉的过程中把图解好并留住引用，翻页时直接命中缓存，不再现解。
+         * 开始时机 = 翻到故事页的动画结束之后（见下面的 silvade:page-ready），
+         * 不是进站就干，免得和首页视频抢带宽。
+         * 代价是进站后多下两三兆，用户确认过这个开销。
+         * 手机不做：竖屏一屏只放得下一两张卡片，带宽和内存也更紧张。
+         */
+        const prefetchStackCovers = () => {
+          const queue = [];
+          fursuitSets.forEach((set) => {
+            if (set.comingSoon === true || set.count === 0) return;
+            const stackStart = Math.max(1, Math.min(set.count, Number(set.stackStart) || 1));
+            const covers = Math.max(1, Math.min(4, set.count - stackStart + 1));
+            for (let depth = 0; depth < covers; depth += 1) {
+              queue.push(photoPath(set.id, stackStart + depth, "thumbs"));
+            }
+          });
+          /* 一次一张、隔 160ms：不跟首页视频抢带宽，也不让解码集体挤在同一帧上 */
+          const step = () => {
+            const src = queue.shift();
+            if (!src) return;
+            const preload = new Image();
+            preload.decoding = "async";
+            if ("fetchPriority" in preload) preload.fetchPriority = "low";
+            preload.src = src;
+            if (typeof preload.decode === "function") preload.decode().catch(() => {});
+            coverCache.push(preload);   /* 留个引用，解码结果不会被立刻回收掉 */
+            window.setTimeout(step, 160);
+          };
+          step();
+        };
+        if (!window.matchMedia("(max-width: 800px)").matches) {
+          let coversQueued = false;
+          const queueCoversPrefetch = () => {
+            if (coversQueued) return;
+            coversQueued = true;
+            /* 翻页收尾那一帧先跑完（导航高亮、底色收色），再排进空闲时段 */
+            if ("requestIdleCallback" in window) {
+              window.requestIdleCallback(prefetchStackCovers, { timeout: 1500 });
+            } else {
+              window.setTimeout(prefetchStackCovers, 240);
+            }
+          };
+          /*
+           * 2026-09-17 改：启动时机从"首页视频能播 + 浏览器空闲"推到"翻到故事页的动画结束之后"。
+           * 视频只要能播就该一口气放下去，这几兆图的下载 + 解码挤在它开头的一两秒里，
+           * 视频就会卡一下（用户实测）。故事页排在委托 / 兽装前面，想到那两页必须先过这一页，
+           * 所以这个时机一样赶得上"翻页直接命中缓存"，又完全不碰首页视频。
+           * 直接跳到更后面的页也算数（detail >= 1），只是那时已经晚了一页，能帮上后面的相册。
+           */
+          window.addEventListener("silvade:page-ready", (event) => {
+            if (Number(event.detail) >= 1) queueCoversPrefetch();
+          });
+        }
         /* 目录列表与堆叠卡片共用同一份数据，相册变多时自动跟着长 */
         galleryIndexList.replaceChildren();
         cancelGalleryIndexScroll();
@@ -4729,7 +5043,106 @@
           maxScroll <= 2 || galleryOverviewGrid.scrollLeft >= maxScroll - 2;
       };
 
+      /*
+       * 返回键"原地淡出 → 换到新位置 → 淡入"（手机端二 / 三层互切时用）。
+       * 同一个按钮在两层的落点差几十像素（第二层钉在标题下面，第三层跟着灯箱框顶），
+       * 不能等它自己跳过去，只能让这段位移发生在它看不见的时候。
+       *
+       * 钉子只打一次不够：切完层那一拍，rAF 里的 syncGalleryRowAnchor 还会把相册框的落点再收一次
+       * （3→2 实测 11.7px），钉子照旧坐标不动，就等于把这 11.7px 演给用户看 —— 也就是用户报的
+       * "三回二有个向下位移、就是这一下卡"。所以淡出这一拍里见一次重打一次钉子，等它彻底透明了
+       * 才松手落位。位置全程静止，用户看到的只有两段 opacity。
+       */
+      let navShiftAnim = null;
+      let navShiftTimer = 0;
+      let navPinnedTop = NaN;
+      let navRepinTimer = 0;
+      /*
+       * 把返回键钉在视口里的某个纵坐标上（只写 transform，不动布局）。
+       * transform 不在 .gallery-nav 的 transition 名单里，所以这一笔是瞬时的；
+       * 量之前先把上一轮写的 transform 清掉，否则量到的是"被钉住之后"的位置。
+       */
+      const pinGalleryNav = () => {
+        if (!Number.isFinite(navPinnedTop)) return;
+        galleryNav.style.transform = "none";
+        const raw = galleryNav.getBoundingClientRect().top;
+        galleryNav.style.transform = `translateY(${(navPinnedTop - raw).toFixed(1)}px)`;
+      };
+      const unpinGalleryNav = () => {
+        navPinnedTop = NaN;
+        galleryNav.style.removeProperty("transform");
+      };
+      /*
+       * 两段都交给合成器跑（WAAPI）。
+       * 2026-09-17 二轮：3→2 那一拍主线程要把第二层几十张缩略图铺开，而 CSS transition
+       * 每一帧都要主线程出牌，于是淡出被拖成"掉帧"（用户报三层返回二层卡、二层进三层没事）。
+       * 合成器动画不受主线程忙闲影响。万一浏览器没有 WAAPI，退回 class + transition。
+       * 三轮起 WAAPI 这条路不再碰 class 和 will-change：那条"先摘 class → 清 will-change → 再 cancel"
+       * 的收尾会让按钮在最后一帧掉出合成层重画一次 —— 就是用户报的"动画完成还会闪一下"。
+       * 现在两段动画前后脚交接，撤掉上一条时下一条已经接管，都在同一个任务里完成，中间没有缝。
+       */
+      const shiftGalleryNav = (fromTop) => {
+        const live = typeof galleryNav.animate === "function";
+        /* 连按两下时从"当前实际的不透明度"接着走，不从 1 重来，免得亮一下再淡 */
+        const from = live ? (parseFloat(getComputedStyle(galleryNav).opacity) || 0) : 0;
+        if (navShiftAnim && navShiftAnim.cancel) navShiftAnim.cancel();
+        navShiftAnim = null;
+        window.clearTimeout(navShiftTimer);
+        window.clearTimeout(navRepinTimer);
+        /* 淡出这一段：先把按钮钉在切层前那一个坐标上，位置变化等它透明了再说 */
+        navPinnedTop = Number.isFinite(fromTop) ? fromTop : NaN;
+        pinGalleryNav();
+        /* 底下那一拍还会再落一次版，淡出这 150ms 里隔两拍补钉子 */
+        navShiftTimer = window.setTimeout(pinGalleryNav, 48);
+        navRepinTimer = window.setTimeout(pinGalleryNav, 128);
+        if (!live) {
+          galleryNav.classList.add("is-nav-shift");
+          navShiftTimer = window.setTimeout(() => {
+            galleryNav.classList.remove("is-nav-shift");
+            unpinGalleryNav();
+          }, 190);
+          return;
+        }
+        const out = galleryNav.animate(
+          [{ opacity: from }, { opacity: 0 }],
+          { duration: 150, easing: "ease", fill: "forwards" }
+        );
+        navShiftAnim = out;
+        out.finished
+          .then(() => {
+            if (navShiftAnim !== out) return;
+            /* 这时候它已经全透明：松钉子落位（这一跳看不见），再淡回来 */
+            unpinGalleryNav();
+            const back = galleryNav.animate(
+              [{ opacity: 0 }, { opacity: 1 }],
+              { duration: 170, easing: "ease", fill: "forwards" }
+            );
+            navShiftAnim = back;
+            out.cancel();
+            back.finished
+              .then(() => {
+                if (navShiftAnim !== back) return;
+                navShiftAnim = null;
+                /* 撤完露出来的是 CSS 的 opacity:1，和动画最后一帧同一个值，不闪 */
+                back.cancel();
+              })
+              .catch(() => {});
+          })
+          .catch(() => {});
+      };
+
       const showGalleryLevel = (level) => {
+        const previousLevel = galleryLevel;
+        /*
+         * 二 / 三层互切时返回键要"淡出 → 淡入"，钉子得钉在切换前的那一个坐标上：
+         * dataset.level 一改，下面换的就是新层的版式了，所以这里先量。
+         */
+        const navTopBefore =
+          previousLevel !== level &&
+          (previousLevel === "detail" || level === "detail") &&
+          window.matchMedia("(max-width: 800px)").matches
+            ? galleryNav.getBoundingClientRect().top
+            : NaN;
         galleryLevel = level;
         fursuitGallery.dataset.level = level;
         /* 总览只在第二层有效，离开这一层就收起来 */
@@ -4741,12 +5154,34 @@
         Object.entries(galleryLevels).forEach(([name, element]) => {
           element.classList.toggle("is-active", name === level);
         });
+        /*
+         * 从灯箱退回第二层时不重播缩略图的入场动画（CSS 里 .is-no-tile-intro）：
+         * 那是 3→2 掉帧的大头。这个标记每次进第二层都重算 —— 从堆叠进来照旧播动画。
+         */
+        if (level === "grid") {
+          fursuitGallery.classList.toggle(
+            "is-no-tile-intro",
+            previousLevel === "detail" && window.matchMedia("(max-width: 800px)").matches
+          );
+        }
         if (level === "sets") {
           galleryNav.setAttribute("aria-label", "打开相册目录");
           galleryNav.setAttribute("aria-expanded", galleryIndexOpen ? "true" : "false");
         } else {
           galleryNav.setAttribute("aria-label", "返回上一层");
           setGalleryIndexOpen(false);
+        }
+        /*
+         * 二 / 三层之间来回切：返回键落的位置不一样（第二层钉在标题下面，第三层在灯箱框顶上）。
+         * 直接挪过去就是原地跳一下，这里让它在原处淡出，位置在暗处落定，再淡入（见 shiftGalleryNav）。
+         * 手机端专属：桌面端两层的按钮位置也差很多，但那套版式用户验收过，不动。
+         */
+        if (
+          previousLevel !== level &&
+          (previousLevel === "detail" || level === "detail") &&
+          window.matchMedia("(max-width: 800px)").matches
+        ) {
+          shiftGalleryNav(navTopBefore);
         }
         /* 返回上一层时保留原来的浏览位置，只有换相册才从头开始 */
         window.requestAnimationFrame(() => {
@@ -4761,8 +5196,15 @@
           if (level === "sets") syncStackFit();
           /* 按钮行的锚点：第一层顺手校正一次，灯箱那层则去掉锚点（保持居中） */
           syncGalleryRowAnchor();
-          /* 回到第二层：缩略图会重播一次入场动画，这段时间吸附照旧先按住 */
-          if (level === "grid") holdGridSnapDuringTileIntro();
+          /* 这一拍底下刚又落过一次版，钉子跟着重打，别让返回键跟着版式漂 */
+          pinGalleryNav();
+          /*
+           * 回到第二层：缩略图会重播一次入场动画，这段时间吸附照旧先按住。
+           * 从灯箱回来时动画被掐掉了（.is-no-tile-intro），吸附也就不用压着一秒多。
+           */
+          if (level === "grid" && !fursuitGallery.classList.contains("is-no-tile-intro")) {
+            holdGridSnapDuringTileIntro();
+          }
           /* 第二层刚显示出来才好量尺寸：动态壁纸的放大 + 居中在这里重算 */
           if (level === "grid") {
             syncWallFit();
@@ -4989,6 +5431,104 @@
         leaveGalleryHint(() => showGalleryLevel("sets"));
       });
 
+      /*
+       * 手机端"刚翻到第二层，立刻点返回键 / 缩略图没反应"（2026-09-17）：
+       * 进第二层那一两秒里，缩略图正在播入场动画（translateY 往上浮、scale 收回来），
+       * 手指按下去时命中的是瓦片本身，抬手时它已经挪了几像素，浏览器按抬手位置算出来的
+       * click 就落到轨道底上 —— 委托里 closest("[data-gallery-photo]") 找不到人，
+       * 观感就是"按下有反馈、松手没动作"。图越多这段动画越长（34 张要 1.4 秒），
+       * 所以只有 Silvade 2.0、2026 极兽聚这种大相册撞得上；从灯箱退回第二层时
+       * 这一层重新显示、动画会整段重播，同样中招。
+       *
+       * 处理办法：手指按下那一刻把"按到的是谁"连坐标记下来，抬手后
+       *   · click 正常落到记住的那个元素上 → 什么都不干，走原来的委托；
+       *   · click 落空 / 落到别的元素上，但手指基本没动 → 按记住的那个补一次；
+       *   · 浏览器连 click 都没发（iOS 偶尔这样）→ 340ms 兜底补一次，
+       *     并把随后迟到的那个 click 吃掉，免得一个手势算两次。
+       * 只认"位移 < 12px 的短按"：横滑、翻页、长按都不进这条路。
+       */
+      const pressTargetSelector = [
+        "[data-gallery-photo]",
+        "[data-gallery-set]",
+        "[data-gallery-nav]",
+        "[data-gallery-prev]",
+        "[data-gallery-next]",
+        "[data-gallery-overview-toggle]",
+        "[data-gallery-overview-close]",
+        "[data-gallery-overview-target]",
+        "[data-gallery-index-target]",
+        ".gallery-tile"
+      ].join(",");
+      const pressTargetOf = (node) => (node && node.closest ? node.closest(pressTargetSelector) : null);
+      let pressTap = null;
+      let pressTapTimer = 0;
+      let ghostClick = null;
+      const clearPressTap = () => {
+        window.clearTimeout(pressTapTimer);
+        pressTapTimer = 0;
+        pressTap = null;
+      };
+      fursuitGallery.addEventListener("touchstart", (event) => {
+        if (event.touches.length !== 1) {
+          clearPressTap();
+          return;
+        }
+        const el = pressTargetOf(event.target);
+        if (!el) {
+          clearPressTap();
+          return;
+        }
+        pressTap = { el, x: event.touches[0].clientX, y: event.touches[0].clientY, done: false };
+        window.clearTimeout(pressTapTimer);
+        pressTapTimer = 0;
+      }, { passive: true, capture: true });
+      fursuitGallery.addEventListener("touchend", (event) => {
+        const press = pressTap;
+        if (!press || press.done) return;
+        const touch = event.changedTouches && event.changedTouches[0];
+        if (touch && Math.hypot(touch.clientX - press.x, touch.clientY - press.y) > 12) {
+          clearPressTap();
+          return;
+        }
+        /* 兜底只补按钮：外链卡片在超时之后补点，会被浏览器当弹窗挡掉 */
+        if (press.el.tagName === "A") return;
+        window.clearTimeout(pressTapTimer);
+        pressTapTimer = window.setTimeout(() => {
+          pressTapTimer = 0;
+          if (pressTap !== press || press.done) return;
+          press.done = true;
+          ghostClick = { x: press.x, y: press.y, until: performance.now() + 700 };
+          press.el.click();
+        }, 340);
+      }, { passive: true, capture: true });
+      fursuitGallery.addEventListener("touchcancel", clearPressTap, { passive: true, capture: true });
+      fursuitGallery.addEventListener("click", (event) => {
+        /* 上一轮是兜底补的：那个迟到的 click 要吃掉，不然一个手势算两次 */
+        if (ghostClick) {
+          const ghost = ghostClick;
+          ghostClick = null;
+          if (
+            performance.now() < ghost.until &&
+            Math.hypot(event.clientX - ghost.x, event.clientY - ghost.y) < 24
+          ) {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
+        }
+        const press = pressTap;
+        if (!press || press.done) return;
+        clearPressTap();
+        if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > 12) return;
+        /* 这一下 click 自己就落在按下的那个元素上：交给原来的委托，不重复处理 */
+        if (pressTargetOf(event.target) === press.el) return;
+        if (!press.el.isConnected) return;
+        press.done = true;
+        event.preventDefault();
+        event.stopPropagation();
+        press.el.click();
+      }, true);
+
       galleryIndexList.addEventListener("click", (event) => {
         const item = event.target.closest("[data-gallery-index-target]");
         if (!item) return;
@@ -5173,6 +5713,40 @@
       }, { passive: false });
 
       /*
+       * 视口噪声闸（2026-09-17）
+       *
+       * iOS 上手一划，地址栏收起 / 展开，innerHeight 会连着改十几次，而
+       * innerWidth 和整页布局（站内尺寸都走 svh / lvh）一动不动。以前这十几次变化
+       * 会把下面十几个 resize 处理函数挨个叫一遍，每个都要读一遍布局再写样式，
+       * 全挤在手指刚划起来的那几帧里 —— 这就是手机上"第一次滑动必卡一下"的来源。
+       * 往回滑时地址栏重新展开，所以从尾页往回滑也一样中招；而点导航翻页
+       * （程序化滚动）不会收起地址栏，所以那条路一直是顺的。
+       *
+       * 规则：手机档只改高、不改宽的一律当噪声丢掉；改了宽（旋转 / 真的改窗口）
+       * 或者幅度超过 220px 的照旧处理。桌面端没有动态工具栏，任何 resize 都当真。
+       *
+       * 签名要等这一串 resize 停下来再更新：同一轮里十几个处理函数都会来问，
+       * 谁先更新谁就把后面几个骗成"没变"。
+       */
+      const smallView = window.matchMedia("(max-width: 800px)");
+      let vpW = window.innerWidth;
+      let vpH = window.innerHeight;
+      let vpTimer = 0;
+      const viewportNoise = () => {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        if (!vpTimer) {
+          vpTimer = window.setTimeout(() => {
+            vpTimer = 0;
+            vpW = window.innerWidth;
+            vpH = window.innerHeight;
+          }, 400);
+        }
+        if (w !== vpW) return false;
+        return smallView.matches && Math.abs(h - vpH) < 220;
+      };
+
+      /*
        * 自适应缩放，v1.2「两根轴」：
        *   轴一 · 形态：超宽屏（屏幕比例 ≥ 2.05 或窗口比 ≥ 2.45）单独一档，
        *     走"展示区锁宽 + 两栏堆叠"那套，观感维持 4.x 调好的样子；
@@ -5218,7 +5792,10 @@
         document.documentElement.style.setProperty("--wide-scale", scale.toFixed(3));
       };
       syncWideScreenClass();
-      window.addEventListener("resize", syncWideScreenClass, { passive: true });
+      window.addEventListener("resize", () => {
+        if (viewportNoise()) return;
+        syncWideScreenClass();
+      }, { passive: true });
 
       /*
        * 方案 C：第一层堆叠卡的自适应尺寸（桌面版式专用）。
@@ -5379,8 +5956,10 @@
        * 只有第一层显示着的时候才量得到那个框高（其它层是 display:none），
        * 所以：在第一层时重新量；不在第一层时沿用上次的值，窗口高度变了就按比例跟着变，
        * 等回到第一层再校正一次。桌面 / 平板（>800px）整段不参与。
-       * 第三层灯箱不参与：灯箱内容（3:4 的大图 + 画师那行）本来就比"标题以下那块高度"高，
-       * 硬按第一层的位置排会把图片和画师那行顶到屏幕外，所以灯箱保持原来的居中。
+       * 第三层灯箱不参与（2026-09-17 起）：灯箱自己钉在标题下面（CSS 里
+       * .gallery-shell[data-level="detail"] 那三条），返回键跟着壳顶走，
+       * 不再去凑第一 / 第二层那条按钮线 —— 强凑的结果是灯箱整体被压到屏幕下半截，
+       * 底下画师那行正好被 Safari 的底栏盖住。
        */
       const galleryRowAnchor = { pad: 0, vh: 0 };
       const syncGalleryRowAnchor = () => {
@@ -5394,6 +5973,13 @@
         const inner = fursuitGallery.closest(".section-inner");
         if (!inner) return;
         const vh = window.innerHeight || 0;
+        /* 窗口高变了：钉住的那条线按比例跟着挪一下，地址栏收放之后不留旧值。 */
+        const rescaleRowPad = () => {
+          if (!(vh && galleryRowAnchor.vh && Math.abs(vh - galleryRowAnchor.vh) > 1)) return;
+          galleryRowAnchor.pad = Math.max(0, galleryRowAnchor.pad * vh / galleryRowAnchor.vh);
+          galleryRowAnchor.vh = vh;
+          fursuitGallery.style.setProperty("--gallery-row-pad", galleryRowAnchor.pad.toFixed(1) + "px");
+        };
         if (galleryLevel === "sets") {
           /* 第二行的行高就是"标题以下给相册的那块高度"，居中位置由它和相册框高度算出来 */
           const rows = window.getComputedStyle(inner).gridTemplateRows.split(/\s+/).map(parseFloat);
@@ -5421,23 +6007,27 @@
           fursuitGallery.classList.add("has-row-anchor");
           return;
         }
-        /* 第三层灯箱：保持居中（见上面注释） */
+        /*
+         * 第三层灯箱：不再垫任何补偿值。这套 --gallery-row-pad / has-row-anchor 只服务
+         * 第一 / 第二层那条"钉在标题下面"的线，灯箱的位置完全交给 CSS。
+         */
         if (galleryLevel === "detail") {
           fursuitGallery.classList.remove("has-row-anchor");
           return;
         }
         if (!galleryRowAnchor.pad) return;
-        if (vh && galleryRowAnchor.vh && Math.abs(vh - galleryRowAnchor.vh) > 1) {
-          galleryRowAnchor.pad = Math.max(0, galleryRowAnchor.pad * vh / galleryRowAnchor.vh);
-          galleryRowAnchor.vh = vh;
-          fursuitGallery.style.setProperty("--gallery-row-pad", galleryRowAnchor.pad.toFixed(1) + "px");
-        }
+        rescaleRowPad();
         fursuitGallery.classList.add("has-row-anchor");
       };
-      window.addEventListener("resize", syncGalleryControls, { passive: true });
-      window.addEventListener("resize", syncStackFit, { passive: true });
-      window.addEventListener("resize", syncWallFit, { passive: true });
-      window.addEventListener("resize", syncGalleryRowAnchor, { passive: true });
+      /* 这四条都要读布局再写样式，是 resize 那一下最贵的一组，先过噪声闸 */
+      const onGalleryResize = () => {
+        if (viewportNoise()) return;
+        syncGalleryControls();
+        syncStackFit();
+        syncWallFit();
+        syncGalleryRowAnchor();
+      };
+      window.addEventListener("resize", onGalleryResize, { passive: true });
       buildGallerySets();
       syncGalleryControls();
       syncStackFit();
@@ -5448,6 +6038,97 @@
       window.setTimeout(syncWallFit, 620);
       window.setTimeout(syncGalleryRowAnchor, 640);
 
+      /*
+       * 翻页到委托页 / 兽装页时那一下停顿，另一部分来自堆叠封面图第一次真正画到屏幕上，
+       * 要现场做"上传显存"，整块内容一次性建层。
+       * 解码那步 prefetchStackCovers 已经提前做了，但"上传显存"只有真画一遍才会发生，
+       * 所以这里在首页空闲时，把同一批封面用 0.4% 透明度的副本先在视口里画一次。
+       * 肉眼看不见，但等真的翻过去时纹理已经就位。手机端不走这套（它没有翻页那一下）。
+       * 2026-09-17：按用户要求加回来（原样恢复，只把那句 revealMobileQuery 换成
+       * window.matchMedia，免得依赖后面才声明的常量）。
+       */
+      let galleryWarmDone = false;
+      const warmGalleryCovers = (allowPartial) => {
+        if (galleryWarmDone || document.querySelector(".gallery-warm")) return true;
+        if (window.matchMedia("(max-width: 800px)").matches) { galleryWarmDone = true; return true; }
+        const vh = window.innerHeight || 0;
+        /*
+         * 已经翻到委托页（或更后面）就别干了：那一页的封面马上要自己画出来，
+         * 再复制一份纯属白占显存。
+         * （这条以前写的是"离开首页就不干"，启动时机挪到故事页之后就得改判据。）
+         */
+        const worksTop = (document.getElementById("works")?.getBoundingClientRect().top ?? 0) + window.scrollY;
+        if (Number.isFinite(worksTop) && window.scrollY > worksTop - vh * .5) { galleryWarmDone = true; return true; }
+        const covers = [];
+        let maxW = 0;
+        let maxH = 0;
+        let pending = 0;
+        document.querySelectorAll(".gallery-shell img").forEach((image) => {
+          if (!image.complete || !image.naturalWidth) {
+            /*
+             * 堆叠里第 2 张往后是 loading="lazy"，在首页根本不开始加载。
+             * 这里把 loading 提成 eager 再催一把——prefetchStackCovers 本来就会拉同一批图，
+             * 字节数没多花，只是把"上传显存"这一步也提前到首页空闲时。
+             */
+            image.loading = "eager";
+            if (typeof image.decode === "function") image.decode().catch(() => {});
+            pending += 1;
+            return;
+          }
+          const rect = image.getBoundingClientRect();
+          if (rect.width < 4 || rect.height < 4) return;
+          const clone = image.cloneNode(false);
+          clone.removeAttribute("srcset");
+          clone.setAttribute("aria-hidden", "true");
+          clone.style.position = "absolute";
+          clone.style.left = "0";
+          clone.style.top = "0";
+          clone.style.width = rect.width.toFixed(1) + "px";
+          clone.style.height = rect.height.toFixed(1) + "px";
+          clone.style.objectFit = "cover";
+          maxW = Math.max(maxW, rect.width);
+          maxH = Math.max(maxH, rect.height);
+          covers.push(clone);
+        });
+        if (pending && !allowPartial) return false;
+        if (covers.length < 4) return false;
+        galleryWarmDone = true;
+        window.__galleryWarm = { at: Math.round(performance.now()), painted: covers.length, sizes: [Math.round(maxW), Math.round(maxH)] };
+        const box = document.createElement("div");
+        box.className = "gallery-warm";
+        box.setAttribute("aria-hidden", "true");
+        box.style.width = Math.ceil(maxW) + "px";
+        box.style.height = Math.ceil(maxH) + "px";
+        box.append(...covers);
+        document.body.append(box);
+        /* 画够几帧就撤，留久了没意义 */
+        window.setTimeout(() => box.remove(), 560);
+        return true;
+      };
+      (() => {
+        let tries = 0;
+        const kick = () => {
+          const run = () => {
+            const last = tries >= 13;
+            if (warmGalleryCovers(last)) return;
+            /* 封面还没加载完，等一会儿再来（最多补十几次，够慢网络用） */
+            if (!last) {
+              tries += 1;
+              window.setTimeout(kick, 420);
+            }
+          };
+          if ("requestIdleCallback" in window) window.requestIdleCallback(run, { timeout: 1200 });
+          else window.setTimeout(run, 600);
+        };
+        /*
+         * 2026-09-17 改：和上面的预取一样，等"翻到故事页的动画结束之后"再开工。
+         * 这一批封面同样要下载 + 解码，压在首页视频开头会把视频带卡一下。
+         * 故事页就排在委托 / 兽装前面，在这儿预热离真正要用只差一页，还更近。
+         */
+        window.addEventListener("silvade:page-ready", (event) => {
+          if (Number(event.detail) >= 1) window.setTimeout(kick, 260);
+        });
+      })();
       /*
        * 第三层灯箱的双指缩放：只放大图片本身，页面和 UI 都不跟着变大。
        * 以前手机上双指放大走的是浏览器整页缩放，iPad 上会把整套界面一起放大，
@@ -6034,6 +6715,7 @@
         linkedSettleTimer = window.setTimeout(settleLinkedReveal, 180);
       }, { passive: true });
       window.addEventListener("resize", () => {
+        if (viewportNoise()) return;
         measureLinkedReveal();
         wakeLinkedReveal();
       }, { passive: true });
@@ -6259,7 +6941,10 @@
       }, 220);
     });
     syncLoreFit(true);
-    window.addEventListener("resize", () => window.requestAnimationFrame(() => syncLoreFit()), { passive: true });
+    window.addEventListener("resize", () => {
+      if (viewportNoise()) return;
+      window.requestAnimationFrame(() => syncLoreFit());
+    }, { passive: true });
     /* 自托管字体加载完高度才算稳，再对一次；首屏兜底一条定时 */
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => syncLoreFit(true));
     window.setTimeout(() => syncLoreFit(true), 700);
@@ -6525,6 +7210,7 @@
       if (event.key === "Escape") closeSocialPopovers();
     });
     window.addEventListener("resize", () => {
+      if (viewportNoise()) return;
       socialPopoverLinks
         .filter((link) => link.classList.contains("is-popover-open"))
         .forEach((link) => setSocialPopover(link, true));
@@ -6586,6 +7272,56 @@
       });
     };
 
+    /*
+     * 翻页落位校正（2026-09-17 加）。
+     *
+     * 症状：手机端用灰条里的总目录跳页之后，页顶那条接缝渐变没消掉，压在灰条底下，
+     * 要手动再拉一下才干净。两个原因凑一块了：
+     *   1) iOS Safari 在滚动过程中收 / 放地址栏时会把落点挪走几十像素，
+     *      动画开始前算好的 targetTop 到落地时就过期了 —— 人停在那一页上方一点，
+     *      分界线正好还留在视口里，接缝带就一直亮着；
+     *   2) 动画最后一帧那句 scrollTo 落点没变时，浏览器不一定派发 scroll，
+     *      接缝带、导航高亮这些依赖 scroll 的开关就停在倒数第二帧的状态。
+     * 所以这里落位之后再补几次（对着当时的真实布局重算），并手动补一个 scroll 事件。
+     * 手一碰（触摸 / 滚轮 / 按键）就撤掉剩下的校正，不跟手势抢。
+     */
+    let pageLandingTimers = [];
+    let lastUserGestureAt = -1e9;
+    const cancelPageLanding = () => {
+      pageLandingTimers.forEach((id) => window.clearTimeout(id));
+      pageLandingTimers = [];
+    };
+    const settlePageLanding = (targetIndex) => {
+      cancelPageLanding();
+      const section = pageSections[targetIndex];
+      if (!section) return;
+      const land = () => {
+        /*
+         * 刚有手势就别去纠正：可能是有人在动画尾巴上插了一脚自己滑。
+         * 阈值 600ms 比翻页动画（920ms）短，所以点目录那一下的 touchstart
+         * 不会把这次校正自己掐掉。
+         */
+        if (performance.now() - lastUserGestureAt < 600) return;
+        /* 这一页顶边还差多少像素才对齐视口顶（0 = 正好吸顶） */
+        const drift = section.getBoundingClientRect().top;
+        /* 只在自己还停在目标页附近时纠正，跑远了就别硬拽回来 */
+        if (Math.abs(drift) > 0.6 && Math.abs(drift) < window.innerHeight * .5) {
+          window.scrollTo(0, window.scrollY + drift);
+          window.dispatchEvent(new Event("scroll"));
+        }
+      };
+      land();
+      [130, 380, 760, 1180].forEach((delay) => {
+        pageLandingTimers.push(window.setTimeout(land, delay));
+      });
+    };
+    ["touchstart", "pointerdown", "wheel", "keydown"].forEach((type) => {
+      window.addEventListener(type, () => {
+        lastUserGestureAt = performance.now();
+        cancelPageLanding();
+      }, { passive: true });
+    });
+
     const turnToPage = (targetIndex) => {
       if (!pageSections[targetIndex]) return;
       pageTurnLocked = true;
@@ -6621,6 +7357,14 @@
         pageTurnLocked = false;
         syncActiveNav();
         syncHomeReturn();
+        /* 最后一帧可能没派发 scroll，这里补一次，接缝带 / 导航状态立刻对齐 */
+        window.dispatchEvent(new Event("scroll"));
+        settlePageLanding(targetIndex);
+        /*
+         * 通知预热：封面预取和显存预热都等这一刻（翻到故事页的动画结束），
+         * 免得它们跟首页视频抢带宽（见 buildGallerySets / warmGalleryCovers）。
+         */
+        window.dispatchEvent(new CustomEvent("silvade:page-ready", { detail: targetIndex }));
       };
 
       pageTurnFrame = requestAnimationFrame(animatePageTurn);
@@ -6771,6 +7515,7 @@
     const mobileTopQuery = window.matchMedia("(max-width: 800px)");
     /* 从手机宽度转到桌面宽度时，三横总目录自动收起（桌面端用的是右上角 topnav） */
     window.addEventListener("resize", () => {
+      if (viewportNoise()) return;
       if (!mobileTopQuery.matches) setTopbarMenu(false);
     }, { passive: true });
     /*
@@ -6895,10 +7640,498 @@
       syncHomeReturn();
       syncActiveNav();
     }, { passive: true });
-    window.addEventListener("resize", syncHomeReturn);
-    window.addEventListener("resize", syncActiveNav);
+    window.addEventListener("resize", () => {
+      if (viewportNoise()) return;
+      syncHomeReturn();
+      syncActiveNav();
+    });
     syncHomeReturn();
     syncActiveNav();
+
+    /*
+     * v2.0 背景层：一块背景横跨 首页 → 尾页 五页。
+     *
+     * 桌面端 = 冰墙（2026-09-17 起，替换掉上一版的低多边形大画布）：
+     *   画板就是本机 1080 的视口尺寸 1536×703，整层固定在视口上、贴着右下角 ——
+     *   宽度按 100lvh 折算（视口高 × 1536/703）、高度就是整个视口，等于画板等比放大后右边对齐。
+     *   比画板更宽的视口（带鱼屏）左边留白；比画板更窄的（2K / iPad）裁掉的也是左边 ——
+     *   冰墙永远抵着右边缘，怎么缩放都不变形。
+     *   图形是"双曲线楔形"：离右下角的距离 r 决定碎冰的大小（越靠角越小越密），碎冰沿等值线
+     *   m·d = r² 向右上推，每翻一页推 DS_PER_PAGE 个 s。s = ln(m/r) 是沿曲线的对数刻度，
+     *   等 s 推进等于面积守恒 —— 翻到第几页，冰的疏密都一个样。
+     *   底色与 9 个色号都走「页对 + 进度档」的查表，滚动时每帧只做数组索引；
+     *   静态形变场让每块冰的边缘一直轻微蠕动（振幅和上一版多边形的顶点位移是同一档）。
+     *   出画就地换头：从一头走出去的冰，从另一头进画并淡入 —— 翻页时"补进来的冰"就是这么来的。
+     *
+     * 手机端 = 只有底色（2026-09-17）：色块、视差、变形全砍。竖屏上无论怎么优化，快速滑动时
+     *   那几层 SVG 重绘都会掉帧，连底色渐变都被拖累，所以只保留"每页整块底色"（v1.3 的硬分界）。
+     *
+     * 这一段只认里程不认方向：s 只跟"页码进度"有关，来回翻是同一套画面。
+     */
+    (() => {
+      const layer = document.getElementById("poly-span");
+      const svg = layer ? layer.querySelector("svg") : null;
+      const main = document.querySelector("main");
+      const pHero = main ? main.querySelector(".hero") : null;
+      const pLore = document.getElementById("lore");
+      const pWorks = document.getElementById("works");
+      const pSuit = document.getElementById("suit");
+      const pSocial = document.getElementById("elsewhere");
+      if (!layer || !svg || !main || !pHero || !pLore || !pWorks || !pSuit) return;
+      const heroWash = document.querySelector(".hero-wash");
+      const watermark = document.querySelector(".social-watermark");
+      const NS = "http://www.w3.org/2000/svg";
+
+      const mq = matchMedia("(max-width: 800px)");
+      const still = matchMedia("(prefers-reduced-motion: reduce)");
+
+      /* ---------- 画板：全部按本机 1080 的视口（1536×703）算，其他分辨率只是等比缩放 / 裁切 ---------- */
+      const W = 1536;
+      const H = 703;
+      const R0 = 42;          /* 楔形的内半径：比这更靠右下的角是纯底色 */
+      const R1 = 322;         /* 前沿半径：画面里那道"冰锋"就是 r = R1 的等值线 */
+      const EDGE_M = 46;      /* 画外余量：碎冰整个探出画板这么多才开始换头 */
+      const DS_PER_PAGE = .40;/* 每翻一页推进的 s */
+      const N_FIELD = 108;    /* 楔形里铺的碎冰 */
+      const N_FRONT = 22;     /* 贴着前沿那条双曲线的一圈 */
+      const AMP = 6.5;        /* 静态形变场的振幅（画板单位） */
+      const FADE_PX = 150;    /* 新冰进画多深算淡入完成 */
+      const FADE_MS = 900;    /* 兜底：出生后多久一定淡完，停下时不会留半透明的残块 */
+
+      /*
+       * 五页的调色板：base = 该页底色；tone 前 6 档是小色差、后 2 档是冰蓝点缀；
+       * edge / cm 决定第 9 号色（碎冰的"锋"）—— 底色朝 edge 混 cm。
+       * 0 = 首页（视频页）、1 = 故事、2 = 委托、3 = 兽装、4 = 尾页。
+       */
+      const PALETTE = [
+        { base: "#071017", edge: "#8fd8ef", cm: .34, tone: ["#040d13", "#0a1a24", "#061019", "#0d1f29", "#050f18", "#08151f", "#0b1a23", "#0e212c"] },
+        { base: "#eef3f6", edge: "#8fa8b6", cm: .46, tone: ["#eaf1f7", "#e3ecf3", "#dce6ee", "#e7eff5", "#d5e1ea", "#e0e9f1", "#e0f0f5", "#dceff5"] },
+        { base: "#0d151d", edge: "#8fd8ef", cm: .34, tone: ["#070f17", "#16232f", "#0a141d", "#1a2734", "#0c1721", "#111e2a", "#15252e", "#182a34"] },
+        { base: "#d7e0e5", edge: "#93a8b6", cm: .46, tone: ["#c9d4dd", "#dde5eb", "#c3cfd9", "#dae3e9", "#cdd8e1", "#d3dce4", "#cbdfe6", "#c8dfe7"] },
+        { base: "#080d12", edge: "#8fd8ef", cm: .32, tone: ["#05090d", "#0c141a", "#070b10", "#101820", "#060a10", "#0a1016", "#0b131a", "#0d1720"] },
+      ];
+      const rgbOf = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+      const cssOf = (a) => "#" + a.map((v) => {
+        const n = Math.max(0, Math.min(255, Math.round(v)));
+        return (n < 16 ? "0" : "") + n.toString(16);
+      }).join("");
+      const mixRgb = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+      const mixCss = (a, b, t) => cssOf(mixRgb(a, b, t));
+      /*
+       * 色差增益：1 = 原色号，越大离底色越远。1.12 是临时站上验收过的那一档，
+       * 比上一版多边形用的 .72 明显，因为碎冰是"一片一片"的，色差太小会糊成一块。
+       */
+      const TONE_GAIN = 1.12;
+      const ZONES = PALETTE.map((z) => {
+        const base = rgbOf(z.base);
+        const edge = mixRgb(base, rgbOf(z.edge), z.cm);
+        return {
+          baseRgb: base,
+          baseHex: z.base,
+          /* 前 8 档照旧，第 9 档是"冰锋"：底色与高光混出来的那一点冷色 */
+          toneRgb: z.tone.map((c) => mixRgb(base, rgbOf(c), TONE_GAIN)).concat([mixRgb(edge, base, .34)]),
+        };
+      });
+      /*
+       * 颜色查表：结果只取决于「页对 + 进度档」，所以提前算好。
+       * 滚动时每帧只做数组索引，不再做浮点混色与 hex 转换。
+       */
+      const PSTEP = 32;
+      const toneLut = (a, b) => ZONES[a].toneRgb.map((_, t) => {
+        const arr = new Array(PSTEP + 1);
+        for (let i = 0; i <= PSTEP; i += 1) arr[i] = mixCss(ZONES[a].toneRgb[t], ZONES[b].toneRgb[t], i / PSTEP);
+        return arr;
+      });
+      const baseLut = (a, b) => {
+        const arr = new Array(PSTEP + 1);
+        for (let i = 0; i <= PSTEP; i += 1) arr[i] = mixCss(ZONES[a].baseRgb, ZONES[b].baseRgb, i / PSTEP);
+        return arr;
+      };
+      const LUTS = [0, 1, 2, 3].map((i) => ({ tone: toneLut(i, i + 1), base: baseLut(i, i + 1) }));
+
+      /* ---------- 静态形变场：粗网格 + 双线性采样，碎冰的顶点每帧只做插值 ---------- */
+      const GW = 44, GH = 22;
+      const WX0 = -90, WY0 = -90, WXS = (W + 180) / (GW - 1), WYS = (H + 180) / (GH - 1);
+      const wdx = new Float32Array(GW * GH), wdy = new Float32Array(GW * GH);
+      for (let gy = 0; gy < GH; gy += 1) {
+        for (let gx = 0; gx < GW; gx += 1) {
+          const x = WX0 + gx * WXS, y = WY0 + gy * WYS, i = gy * GW + gx;
+          wdx[i] = AMP * (.62 * Math.sin(x / W * 3.7 + y / H * 2.1) + .38 * Math.sin(x / W * 2.2 - y / H * 3.4 + 1.7));
+          wdy[i] = AMP * (.58 * Math.sin(x / W * 2.9 - y / H * 2.6 + 2.3) + .42 * Math.sin(x / W * 4.1 + y / H * 1.8 + .5));
+        }
+      }
+
+      /* 碎冰的身形：都是"一头收成尖锋"的长条，坐标是 (沿曲线, 垂直曲线)，范围 −1~1 */
+      const SHP = [
+        [[-1, 0], [0, -1], [1, 0], [0, 1]],
+        [[-1, -.55], [-.15, -1], [.72, -.58], [1, 0], [.55, .78], [-.6, .96]],
+        [[-1, -.88], [-.3, -.36], [.5, -.96], [1, -.08], [.28, .9], [-1, .62]],
+        [[-1, -.7], [.08, -1], [.94, -.18], [1, .5], [-.62, .95]],
+        [[-1, -.24], [-.18, -.88], [.52, -.52], [1, .06], [.3, .86], [-.78, .58]],
+        [[-1, -.46], [.34, -1], [1, -.3], [.62, .68], [-.9, .9]],
+      ];
+
+      const mulberry32 = (seed) => {
+        let a = seed >>> 0;
+        return () => {
+          a |= 0; a = (a + 0x6D2B79F5) | 0;
+          let t = Math.imul(a ^ (a >>> 15), 1 | a);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      };
+
+      let shards = [];
+      let wallBuilt = false;
+      const buildWall = () => {
+        if (wallBuilt) return;
+        wallBuilt = true;
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < N_FIELD + N_FRONT; i += 1) {
+          const el = document.createElementNS(NS, "polygon");
+          frag.appendChild(el);
+          shards.push({
+            el: el, front: i >= N_FIELD, seed: ((i + 1) * 2654435761) % 4294967296,
+            r: 0, s: 0, sLo: 0, sHi: 0, sRange: 1, len: 0, th: 0, pts: null,
+            tone: 0, D: null, live: false, entryTop: false, bornAt: 0, fadeOn: false, op: 1,
+          });
+        }
+        svg.textContent = "";
+        svg.appendChild(frag);
+      };
+
+      /* 在楔形里随机布一块冰：s 均匀 + r² 均匀 = 画面面积上均匀 */
+      const spawn = (sh) => {
+        const rnd = mulberry32((sh.seed + shards.length * 7919) >>> 0);
+        sh.r = sh.front
+          ? R1 * (.93 + rnd() * .12)
+          : Math.sqrt(R0 * R0 + (R1 * R1 - R0 * R0) * rnd());
+        const r = sh.r;
+        /* 尺寸跟着 r 走：越靠右下角越小越密，往外逐渐变大；长宽比保持细长 */
+        const grow = r / R1;
+        sh.len = Math.max(52, Math.min(198, 196 * grow)) * (.82 + rnd() * .36);
+        sh.th = Math.max(7, Math.min(42, sh.len * (.16 + rnd() * .1)));
+        sh.tone = sh.front ? (rnd() < .55 ? 8 : 6 + Math.floor(rnd() * 2)) : Math.floor(rnd() * 5);
+        /*
+         * 这块冰能在曲线上走多远：s = ln(m/r)。
+         * sLo 那头一直伸到画面右上之外，sHi 那头伸到左下之外，两头都在画外，中间不会凭空断。
+         */
+        const mg = EDGE_M + sh.len * .5 + sh.th * .5;
+        sh.sLo = -Math.log((H + mg) / r);
+        sh.sHi = Math.log((W + mg) / r);
+        sh.sRange = sh.sHi - sh.sLo;
+        /* 出生点：整条曲线均匀（s 均匀 = 面积均匀），所以刷新之后看着就是"满的" */
+        sh.s = sh.sLo + sh.sRange * rnd();
+        const base = SHP[Math.floor(rnd() * SHP.length)];
+        const out = new Array(base.length);
+        for (let i = 0; i < base.length; i += 1) {
+          out[i] = [base[i][0] + (rnd() - .5) * .16, base[i][1] + (rnd() - .5) * .16];
+        }
+        sh.pts = out;
+        sh.entryTop = false;      /* 刷新时第一次铺满，不需要淡入 */
+        sh.bornAt = performance.now();
+        sh.fadeOn = false;
+        sh.op = 1;
+        sh.el.setAttribute("style", "fill:var(--t" + sh.tone + ", #0b1a23);opacity:1");
+        sh.live = true;
+        return sh;
+      };
+
+      /*
+       * 沿曲线推 ds（s 等量；负 = 正翻的"向右上"方向）。
+       * 越过两头就地取模：从哪一头出画，就从另一头进画，并重新开始淡入。
+       */
+      const advance = (sh, ds, nowMs) => {
+        sh.s += ds;
+        let wrapped = false;
+        if (ds > 0) {
+          while (sh.s > sh.sHi) { sh.s -= sh.sRange; wrapped = true; }
+        } else {
+          while (sh.s < sh.sLo) { sh.s += sh.sRange; wrapped = true; }
+        }
+        if (!wrapped) return;
+        sh.entryTop = ds > 0;     /* 回翻时从上方回来，正翻时从左下回来 */
+        sh.bornAt = nowMs;
+        sh.fadeOn = true;
+        sh.op = 0;
+        sh.el.style.opacity = 0;
+      };
+
+      /* ---------- 状态 ---------- */
+      let mode = "";              /* "ice" = 桌面走冰墙；"flat" = 手机只有每页纯色 */
+      let tops = [0, 0, 0, 0, 0]; /* 五页各自的文档坐标 */
+      let edges = [];             /* 四条分界的文档坐标：故事顶 / 委托顶 / 兽装顶 / 尾页顶 */
+      let socialTop = Infinity;   /* 尾页的文档坐标，用来判断大字要不要入场 */
+      let wallKey = "";           /* 上一次写过的「页对 + 进度档」，没变就不碰颜色 */
+      let wallPc = NaN;           /* 上一次画过的页码进度，没动就不重写 points */
+      let washPaint = -1;         /* 首页下缘的接缝色上一次写过的透明度 */
+      let markOn = false;
+      let frameWanted = false;
+
+      /*
+       * 换色 / 判页码用的"稳定视口高"（2026-09-17）。
+       * 不能用 window.innerHeight：iOS 一收地址栏它就跳 80~100px，而冰墙的宽度是拿它折算的，
+       * 一收一放整片冰就跟着缩放。这里量一次 100lvh（工具栏收起时的高度），按窗口宽缓存。
+       */
+      let viewportHCache = { w: 0, h: 0 };
+      const windowH = () => {
+        const w = window.innerWidth || 0;
+        if (viewportHCache.w === w && viewportHCache.h) return viewportHCache.h;
+        const probe = document.createElement("div");
+        probe.setAttribute("aria-hidden", "true");
+        probe.style.cssText = "position:fixed;top:0;left:0;width:0;height:100lvh;visibility:hidden;pointer-events:none";
+        document.body.appendChild(probe);
+        const h = probe.getBoundingClientRect().height;
+        probe.remove();
+        viewportHCache = { w: w, h: h > 120 ? h : (window.innerHeight || 0) };
+        return viewportHCache.h;
+      };
+
+      /*
+       * 页码进度：0 = 首页对齐，1 = 故事页对齐 …… 4 = 尾页对齐（分段线性）。
+       * 五页并不等高（首页最少 720px、故事页比一屏还长过、委托页 / 兽装页又各自留过余量），
+       * 所以按各页真实顶边分段算，翻到哪一页进度就正好落在哪个整数上。
+       */
+      const pageProgress = (y) => {
+        if (y <= tops[0]) return 0;
+        for (let i = 0; i < 4; i += 1) {
+          if (y < tops[i + 1]) {
+            const span = tops[i + 1] - tops[i];
+            const t = span > 0 ? (y - tops[i]) / span : 0;
+            return i + (t < 0 ? 0 : (t > 1 ? 1 : t));
+          }
+        }
+        return 4;
+      };
+
+      /*
+       * 桌面 / 手机两档。手机档（flat）不画冰：整层是隐藏的，各页只有自己的纯色
+       * （见下面 paintBands），和 v1.3 一模一样。
+       */
+      const applyMode = () => {
+        const next = mq.matches ? "flat" : "ice";
+        if (next === mode) return;
+        mode = next;
+        layer.classList.toggle("is-ice", mode === "ice");
+        if (mode === "ice") {
+          buildWall();
+          /*
+           * 尾页顶上那条 20vh 的渐入是给上一版多边形留的接缝色：冰墙的底色自己会从兽装页
+           * 渐变过来，留着它等于在尾页上盖一块不透明的深色，把右边的冰挡掉一半（底色在脚本里
+           * 已经对得上，去掉之后看不出差别）。
+           */
+          if (pSocial) pSocial.style.backgroundImage = "none";
+          clearBands();
+        } else if (pSocial) {
+          pSocial.style.removeProperty("background-image");
+        }
+        wallKey = "";
+        wallPc = NaN;
+      };
+
+      /*
+       * 首页下缘的接缝色：取值跟冰墙同一套公式（分界线在屏幕上的位置决定进度，
+       * 中段再乘一个 sin 压缩），结果只写 opacity —— 改透明度走合成，不会每帧重画那块渐变。
+       * 尾页上缘不用这个，底色自己会渐变过去。
+       */
+      const syncWashes = (y) => {
+        if (!heroWash) return;
+        const vh = windowH();
+        const half = Math.max(1, vh * .5);
+        const w = vh;
+        let pc = (y - (edges[0] - w)) / w;
+        pc = pc < 0 ? 0 : (pc > 1 ? 1 : pc);
+        const s = (edges[0] - y - vh * .5) / half;
+        let v = pc + s * Math.sin(Math.PI * pc) * .55;
+        v = v < 0 ? 0 : (v > 1 ? 1 : v);
+        v = Math.round(v * 100) / 100;
+        if (v !== washPaint) { washPaint = v; heroWash.style.opacity = v; }
+      };
+
+      /*
+       * 手机档静态底色：每页只写一笔自己的纯色。这一笔是静态的、面积也小，
+       * 滚动过程里一次都不写；换回桌面档时整组撤掉，交回冰墙。
+       */
+      const BAND_ROWS = [[pLore, 1], [pWorks, 2], [pSuit, 3], [pSocial, 4]];
+      const paintBands = () => {
+        for (let i = 0; i < BAND_ROWS.length; i += 1) {
+          const el = BAND_ROWS[i][0];
+          if (el) el.style.backgroundColor = ZONES[BAND_ROWS[i][1]].baseHex;
+        }
+      };
+      const clearBands = () => {
+        for (let i = 0; i < BAND_ROWS.length; i += 1) {
+          const el = BAND_ROWS[i][0];
+          if (el) el.style.removeProperty("background-color");
+        }
+      };
+
+      /*
+       * 冰墙的一帧。
+       *
+       * 颜色先走「页对 + 进度档」的查表：底色写在层上、9 个色号写在 svg 的自定义属性上，
+       * 130 块碎冰的 fill / stroke 都引用同一组变量 —— 一次属性写全片生效，档位没变就一笔不写。
+       * 形状再按 s 推进：只有"进度动了"或"这块正在淡入"时才重写 points，
+       * 停在原地时这一层一帧都不重画。
+       */
+      const paintWall = (pc, nowMs) => {
+        const idx = Math.min(3, Math.floor(pc));
+        let li = Math.round((pc - idx) * PSTEP);
+        li = li < 0 ? 0 : (li > PSTEP ? PSTEP : li);
+        const key = idx + ":" + li;
+        if (key !== wallKey) {
+          wallKey = key;
+          const lut = LUTS[idx];
+          for (let t = 0; t < 9; t += 1) svg.style.setProperty("--t" + t, lut.tone[t][li]);
+          layer.style.backgroundColor = lut.base[li];
+        }
+
+        const D = -DS_PER_PAGE * pc;   /* 页码越往后越往右上推 */
+        const moved = !(Math.abs(pc - wallPc) < .00035);
+        if (moved) wallPc = pc;
+        let fading = 0;
+        for (let i = 0; i < shards.length; i += 1) {
+          const sh = shards[i];
+          if (!sh.live) { spawn(sh); sh.D = D; }
+          const dD = D - sh.D;
+          if (dD !== 0) { advance(sh, dD, nowMs); sh.D = D; }
+
+          const r = sh.r;
+          const m = r * Math.exp(sh.s);
+          const d = r * Math.exp(-sh.s);
+
+          /*
+           * 补进来的冰按"进画多深 + 停留多久"双保险淡入：
+           * 从左下进来的看离左边多远，从上方回来的看离上边多远；再加一道时间兜底，
+           * 保证停下之后一定回到全不透明，不会留下半透明的残块。
+           */
+          if (sh.fadeOn) {
+            const depth = sh.entryTop ? (H - d) : (W - m);
+            let op = Math.min(1, Math.max(depth / FADE_PX, (nowMs - sh.bornAt) / FADE_MS));
+            if (op >= 1) { op = 1; sh.fadeOn = false; }
+            if (Math.abs(op - sh.op) > .02) { sh.op = op; sh.el.style.opacity = op; }
+            if (sh.fadeOn) fading += 1;
+          }
+          if (!moved && !sh.fadeOn) continue;
+
+          /* 位置：这块冰的锚点在画板里的 (W − m, H − d)，沿曲线向右上是 (ux, uy)，垂直方向是 (vx, vy) */
+          const q = d / m, il = 1 / Math.sqrt(1 + q * q);
+          const ox = W - m, oy = H - d;
+          const ux = il, uy = -q * il;
+          const vx = -q * il, vy = -il;
+          const hl = sh.len * .5, ht = sh.th * .5, pts = sh.pts, n = pts.length;
+          let str = "";
+          for (let a = 0; a < n; a += 1) {
+            const u = pts[a][0] * hl, v = pts[a][1] * ht;
+            const x = ox + ux * u + vx * v, y = oy + uy * u + vy * v;
+            /* 静态形变场：顶点按画板坐标取一点位移 */
+            const fx = (x - WX0) / WXS, fy = (y - WY0) / WYS;
+            let ix = fx | 0, iy = fy | 0;
+            if (ix < 0) ix = 0; else if (ix > GW - 2) ix = GW - 2;
+            if (iy < 0) iy = 0; else if (iy > GH - 2) iy = GH - 2;
+            const tx = fx - ix, ty = fy - iy;
+            const i00 = iy * GW + ix, i10 = i00 + 1, i01 = i00 + GW, i11 = i01 + 1;
+            const ax = wdx[i00] + (wdx[i10] - wdx[i00]) * tx, bx = wdx[i01] + (wdx[i11] - wdx[i01]) * tx;
+            const ay = wdy[i00] + (wdy[i10] - wdy[i00]) * tx, by = wdy[i01] + (wdy[i11] - wdy[i01]) * tx;
+            str += (str ? " " : "") + (x + ax + (bx - ax) * ty).toFixed(1) + "," + (y + ay + (by - ay) * ty).toFixed(1);
+          }
+          sh.el.setAttribute("points", str);
+        }
+        return fading;
+      };
+
+      const measure = () => {
+        applyMode();
+        const vh = windowH();
+        const topOf = (el) => el.getBoundingClientRect().top + window.scrollY;
+        tops = [
+          topOf(pHero),
+          topOf(pLore),
+          topOf(pWorks),
+          topOf(pSuit),
+          pSocial ? topOf(pSocial) : topOf(pSuit) + vh,
+        ];
+        edges = [tops[1], tops[2], tops[3], tops[4]];
+        socialTop = tops[4];
+        if (mode === "ice") {
+          /*
+           * 冰墙贴着右下角：宽度按视口高折算（画板等比放大），高度由 CSS 的 100lvh 撑满。
+           * 用 lvh 是有意的 —— 地址栏收放时它不动，整片冰就不会跟着缩放。
+           */
+          svg.style.width = Math.round(vh * (W / H)) + "px";
+        } else {
+          paintBands();
+        }
+        wallKey = "";
+        wallPc = NaN;
+      };
+
+      /* 纯算术判断：这个函数每帧都会跑，所以不能在里面读布局 */
+      const syncMark = () => {
+        if (!watermark || !pSocial) return;
+        const y = window.scrollY;
+        /* 触发点放在"尾页刚好开始进屏"那一档，配合 7rem 的行程，整段上滑都看得见；
+           退出阈值再往外挪一点，不然来回抖动会让它反复重播。 */
+        if (!markOn && y > socialTop - windowH()) {
+          markOn = true;
+          watermark.classList.add("is-in");
+        } else if (markOn && y < socialTop - windowH() * 1.12) {
+          markOn = false;
+          watermark.classList.remove("is-in");
+        }
+      };
+
+      const frame = () => {
+        frameWanted = false;
+        if (mode === "flat") { syncMark(); return; }
+        const y = window.scrollY;
+        /*
+         * 减动效：冰不跟着滚动连续推进，只在跨过"页与页的中点"时整档跳到那一页 ——
+         * 底色和碎冰一起换，观感还是一次翻页，但没有连续位移。
+         */
+        const pcRaw = pageProgress(y);
+        const fading = paintWall(still.matches ? Math.round(pcRaw) : pcRaw, performance.now());
+        syncWashes(y);
+        syncMark();
+        if (fading) queue();
+      };
+      const queue = () => {
+        if (frameWanted) return;
+        frameWanted = true;
+        requestAnimationFrame(frame);
+      };
+
+      try {
+        measure();
+        frame();
+      } catch (err) {
+        /* 兜底：冰墙没搭起来也不能露底 —— 退回"每页一块纯色" */
+        layer.classList.add("is-ice");
+        layer.style.backgroundColor = ZONES[0].baseHex;
+        paintBands();
+        return;
+      }
+      window.addEventListener("scroll", queue, { passive: true });
+      /*
+       * 背景层这一条也过噪声闸：地址栏收起时整页布局没变（节高走的是 svh / lvh），
+       * 重量一遍纯属白干，还会顺手把底层的颜色重刷一次。
+       */
+      window.addEventListener("resize", () => {
+        if (viewportNoise()) return;
+        measure();
+        queue();
+      }, { passive: true });
+      window.addEventListener("load", () => { measure(); queue(); });
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => { measure(); queue(); }).catch(() => {});
+      }
+      let lastMob = mq.matches;
+      window.addEventListener("resize", () => {
+        if (mq.matches !== lastMob) { lastMob = mq.matches; measure(); queue(); }
+      }, { passive: true });
+      syncMark();
+    })();
+
   </script>
 </body>
 </html>
