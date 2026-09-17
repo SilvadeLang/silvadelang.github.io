@@ -5185,6 +5185,18 @@
         }
         /* 返回上一层时保留原来的浏览位置，只有换相册才从头开始 */
         window.requestAnimationFrame(() => {
+          /*
+           * 进层的第一次同步前，先把这一层横排上残留的"滑动中"标记撤掉。
+           * 换相册时那句"把 scrollLeft 拉回 0"也会派发一次 scroll 事件，监听里顺手
+           * 把这个 rail 挂进 galleryMovingRails（要 130ms 才自己掉）；挂着的时候下面
+           * 这次 syncGalleryControls 会在 moving 分支直接 return —— 状态行不落地
+           * （rail 高出一行 18px），syncWallFit 就按偏高的容器把卡片算大一圈
+           * （1080 实测 445 → 469），等 620ms 兜底那次才收回来。
+           * 症状（2026-09-18 用户报）：壁纸第二层翻过页 → 返回第一层 → 再点开，
+           * 卡片先偏大再突变回正常；没翻过页时 scrollLeft 本来就是 0，不派发事件，
+           * 所以只有"翻过页"这一条路会犯。刚进这一层时横排不可能真在被滑，清掉安全。
+           */
+          endGalleryMotion(galleryRails[level]);
           /* 刚进灯箱：下面那行画师 / 合委人直接落字，不要先淡入一次 */
           if (level === "detail") {
             galleryMetaKey = "";
