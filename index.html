@@ -5190,12 +5190,17 @@
             galleryMetaKey = "";
             renderGalleryMeta(gallerySet, galleryIndex(galleryRails.detail), true);
           }
+          /*
+           * 锚点必须先落定，再量缩略图列宽 —— --gallery-row-pad 是"第二层能占多高"那份预算里的一项。
+           * 顺序反了（先量后挂锚点）就会按"没有锚点、相册框顶偏高"的版面量，列宽算出偏大约 2px，
+           * 症状是灯箱退回第二层后缩略图偏大一点点、下面那行相册名跟着往下挪，横滑停稳重算才弹回去。
+           * 桌面端这里是空转（锚点只服务手机版式）。
+           */
+          syncGalleryRowAnchor();
           syncGalleryControls();
           markGalleryOverviewCurrent();
           /* 回到第一层：层刚显示出来才好量尺寸，顺便把方案 C 的自适应重算一次 */
           if (level === "sets") syncStackFit();
-          /* 按钮行的锚点：第一层顺手校正一次，灯箱那层则去掉锚点（保持居中） */
-          syncGalleryRowAnchor();
           /* 这一拍底下刚又落过一次版，钉子跟着重打，别让返回键跟着版式漂 */
           pinGalleryNav();
           /*
@@ -5745,6 +5750,14 @@
         if (w !== vpW) return false;
         return smallView.matches && Math.abs(h - vpH) < 220;
       };
+      /*
+       * 这把闸挂到 window 上是故意的：进场动画、故事页 loreFit、社媒弹窗、灰条总目录、
+       * 导航高亮、背景层那六支 resize 处理函数都住在别的 IIFE 里，读不到这个 const。
+       * 2026-09-17 给它们加闸时漏了这一步 —— 它们一 resize 就 ReferenceError，整支直接不执行
+       * （转屏 / 改窗口宽度时该跑的那几次同步一次都没跑）。挂 window 后共用同一份签名状态，
+       * 同一轮里谁先问都不会把后面的骗成"没变"。
+       */
+      window.viewportNoise = viewportNoise;
 
       /*
        * 自适应缩放，v1.2「两根轴」：
