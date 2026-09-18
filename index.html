@@ -66,6 +66,30 @@
       font-display: swap;
       unicode-range: U+0022, U+0027, U+2013-2014, U+2018-2019, U+201C-201D, U+2026;
     }
+    @font-face {
+      /*
+       * v2.1 标题级西文衬线（OFL，免费商用）：大标题、SET 名、目录条、故事页英文标题、
+       * 社媒页的数字和英文都走它。它没有中文字形，混排里的中文会自动落到后面的思源宋体，
+       * 所以一套字体栈就够，不用按语言拆标签。
+       * 注意：它的数字是老式数字（高低错落），用到的地方都配了 lining-nums。
+       */
+      font-family: "Cormorant Garamond";
+      src: url("assets/fonts/silvade-display-serif.woff2") format("woff2");
+      font-weight: 300 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      /*
+       * v2.1 故事页英文正文（OFL，免费商用）：专为屏幕长文画的衬线，
+       * 比借思源宋体的拉丁字形松一档（实测同一段会少一行）。
+       */
+      font-family: "Source Serif 4";
+      src: url("assets/fonts/silvade-story-serif.woff2") format("woff2");
+      font-weight: 200 900;
+      font-style: normal;
+      font-display: swap;
+    }
     :root {
       --ink: #071017;
       --paper: #eef3f6;
@@ -76,6 +100,15 @@
       --line-light: rgba(7, 16, 23, .16);
       --serif: "Noto Serif SC", "Songti SC", Georgia, serif;
       --sans: "Inter", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+      /*
+       * v2.1 字体分工：
+       *   --serif        中文正文 / 中文标题，照旧思源宋体（不动）。
+       *   --serif-display 标题级：西文和数字走 Cormorant Garamond，中文落到后面的思源宋体。
+       *   --serif-story  故事页英文正文专用（Source Serif 4），只挂在那一条规则上。
+       *   --sans         标签级（社媒卡片小标签、弹窗标签列、页脚日期）：Inter + 等宽数字。
+       */
+      --serif-display: "Cormorant Garamond", "Noto Serif SC", "Songti SC", Georgia, serif;
+      --serif-story: "Source Serif 4", "Noto Serif SC", Georgia, serif;
       /* 宋体（思源宋体）统一字重：想让大标题再细 / 再粗一点，只改这一个数就行（200~900） */
       --serif-weight: 400;
     }
@@ -799,9 +832,11 @@
     .story-dialog h2 {
       margin: 0;
       color: var(--ink);
-      font-family: var(--serif);
+      font-family: var(--serif-display);
       font-size: clamp(1.65rem, 4vw, 2.65rem);
       font-weight: var(--serif-weight);
+      /* 切到英文标题（The Sleepless City 这类）时，Cormorant 的数字不会高低错落 */
+      font-variant-numeric: lining-nums;
       line-height: 1.08;
       /* 切中英文时标题跟着正文一起淡出/淡入，时长与正文一致 */
       transition: opacity .24s ease, transform .24s ease;
@@ -874,11 +909,11 @@
     }
     .story-copy.is-active { display: block; }
     /*
-     * 英文正文：标点交给 Inter（半角西文），字母保持宋体的拉丁部分。
-     * 没有这一条的话，英文里的 “ ” 和 ’ 会借用中文字体的全角字格，看着就是中文引号。
+     * 英文正文：标点交给 Inter（半角西文），字母走 v2.1 的 Source Serif 4。
+     * 没有标点这一档的话，英文里的 “ ” 和 ’ 会借用中文字体的全角字格，看着就是中文引号。
      */
     .story-dialog-body .story-copy[lang="en"] {
-      font-family: "Inter Punctuation", var(--serif);
+      font-family: "Inter Punctuation", var(--serif-story);
     }
     /* 切中英文时：正文和标题同一个节拍先淡出、再淡入 */
     .story-dialog-body.is-switching .story-copy {
@@ -1220,7 +1255,8 @@
       }
     }
     .gallery-index-item span {
-      font-family: var(--serif);
+      font-family: var(--serif-display);
+      font-variant-numeric: lining-nums;
       font-size: 1.02rem;
       /*
        * 目录条目名称不折行：面板宽度是按行数定的，长标题折行会把行高撑成两倍，
@@ -1326,7 +1362,8 @@
     .suit-set-meta strong {
       display: block;
       margin-top: .15rem;
-      font-family: var(--serif);
+      font-family: var(--serif-display);
+      font-variant-numeric: lining-nums;
       font-size: clamp(1.15rem, 1.6vw, 1.5rem);
       font-weight: var(--serif-weight);
       letter-spacing: -.02em;
@@ -1435,7 +1472,8 @@
       gap: .18rem;
     }
     .gallery-tile-name {
-      font-family: var(--serif);
+      font-family: var(--serif-display);
+      font-variant-numeric: lining-nums;
       font-size: 1.02rem;
       font-weight: var(--serif-weight);
       letter-spacing: -.01em;
@@ -1974,8 +2012,25 @@
       }
     }
     .social-link[data-social="x"] { cursor: default; }
-    .social-link span { font-size: .66rem; letter-spacing: .16em; text-transform: uppercase; }
-    .social-link strong { font-family: var(--serif); font-size: 1.45rem; font-weight: var(--serif-weight); }
+    /*
+     * 社媒字体分工（2026-09-18 用户点名，两个方向别做反）：
+     *   上面的小标签（QQ / BILIBILI / X / OTHERS）退回 Inter + 等宽数字；
+     *   下面的大字（账号 / 数字）保留 Cormorant Garamond + lining-nums。
+     */
+    .social-link span {
+      font-family: var(--sans);
+      font-variant-numeric: lining-nums tabular-nums;
+      font-size: .66rem;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    .social-link strong {
+      font-family: var(--serif-display);
+      font-variant-numeric: lining-nums;
+      /* 桌面端字号（2026-09-18 用户点名加大）；手机端在下面媒体查询里缩到 1.35rem */
+      font-size: 1.65rem;
+      font-weight: var(--serif-weight);
+    }
     /* 同上：改用真实元素，箭头是内联 SVG */
     .social-link[data-social="bilibili"] .social-link-cta {
       position: absolute;
@@ -2040,7 +2095,8 @@
     }
     .social-popover-copy strong {
       color: var(--ink);
-      font-family: var(--serif);
+      font-family: var(--serif-display);
+      font-variant-numeric: lining-nums;
       font-size: 1rem;
       font-weight: var(--serif-weight);
     }
@@ -2067,10 +2123,15 @@
       padding-bottom: 0;
       border-bottom: 0;
     }
-    .social-other-list span { color: #72858f; }
+    .social-other-list span {
+      color: #72858f;
+      font-family: var(--sans);
+      font-variant-numeric: lining-nums tabular-nums;
+    }
     .social-other-list strong {
       color: var(--ink);
-      font-family: var(--sans);
+      font-family: var(--serif-display);
+      font-variant-numeric: lining-nums;
       font-size: .82rem;
       font-weight: 600;
       letter-spacing: 0;
@@ -2084,6 +2145,8 @@
       margin-top: 4rem;
       color: #6e818c;
       font-size: .7rem;
+      /* 日期里的数字等宽，以后改版本号 / 日期时不会跳宽度 */
+      font-variant-numeric: lining-nums tabular-nums;
     }
     /*
      * 页脚右列：上面一行是归档说明，下面跟上签名。
@@ -2132,8 +2195,15 @@
         bottom: clamp(1rem, 2.6vh, 1.9rem);
         max-width: 1250px;
         margin: 0 auto;
-        /* 压在 .section-inner（z-index:1）之上，免得内容长的时候被盖住 */
-        z-index: 2;
+        /*
+         * 层叠（2026-09-18 改）：原地写作 z-index:2，本意是"内容长时别被盖住"，
+         * 结果社媒弹窗（.social-popover 是 z-index:20，但它是 .section-inner 的
+         * 后代、被关在那个 z-index:1 的层叠上下文里）永远打不过它 —— QQ 二维码
+         * 向下展开到页面底部时，这行小字就浮在二维码上面。
+         * 降到 0：内容层（连弹窗）回到上面；这行字本身仍然是钉底可见的
+         * （它下面只有 section 底色，没有别的元素跟它抢）。
+         */
+        z-index: 0;
       }
     }
 
@@ -3627,7 +3697,7 @@
             <span>Designed for a quiet, blue-edged world.</span>
             <span class="footer-sign">
               <!-- 最近更新日期：以后每次改完站点顺手把这里改成当天（日/月/年） -->
-              <span>Last updated 17/09/2026 · v2.0</span>
+          <span>Last updated 18/09/2026 · v2.1</span>
               <img class="footer-signature" src="assets/silvade-signature.png" alt="Silvade 签名" width="600" height="328" loading="lazy" decoding="async">
             </span>
           </footer>
@@ -4643,6 +4713,11 @@
         let settleFrame = 0;
         let dragged = false;
         let suppressClickUntil = 0;
+        /*
+         * 这一次手势只是"把还在滑的横排按住停下"，不是点击。
+         * 见 onTouchStart 里的说明。
+         */
+        let stopOnlyTap = false;
 
         const maxScroll = () => Math.max(0, rail.scrollWidth - rail.clientWidth);
 
@@ -4825,7 +4900,18 @@
 
         const onTouchStart = (event) => {
           if (!flingQuery.matches) return;
+          /*
+           * 手指落在"还在惯性滑行 / 吸附动画里"的横排上（2026-09-18 用户报）：
+           * 这一下只负责把滑动按住停下，不打开相册 —— 想进相册得等它停稳再点。
+           * 以前这里只 cancel 掉 rAF、不收尾：is-panning 和 galleryMovingRails
+           * 一直挂着，而 html.is-panning 会把堆叠的展开过渡（.suit-set-stack img
+           * 的 transform transition）整个关掉，于是"点一下不开、动画也再也出不来"，
+           * 得再真正滑一次才会恢复；顺带那一下 click 还会把相册点开。
+           */
+          const wasMoving = Boolean(glideFrame || settleFrame);
           stopAnimation();
+          if (wasMoving) release();
+          stopOnlyTap = wasMoving;
           /* 灯箱里图被放大时这一次是平移图片，横滑不参与 */
           if (rail.dataset.zoomPan === "1") {
             tracking = false;
@@ -4877,9 +4963,13 @@
           tracking = false;
           if (axis !== "x") {
             axis = null;
+            /* 刚才那一下只是"按住停住滑动"：这次 click 吃掉，别打开相册 */
+            if (stopOnlyTap) suppressClickUntil = performance.now() + 350;
+            stopOnlyTap = false;
             return;
           }
           axis = null;
+          stopOnlyTap = false;
           const now = performance.now();
           const recent = samples.filter((sample) => now - sample.t < 120);
           let velocity = 0;
@@ -4916,6 +5006,7 @@
           if (!tracking) return;
           tracking = false;
           axis = null;
+          stopOnlyTap = false;
           stopAnimation();
           release();
         };
@@ -7121,15 +7212,25 @@
     const socialPopoverLinks = [...document.querySelectorAll(".social-link[data-social='qq'], .social-link[data-social='others']")];
     const socialHoverQuery = window.matchMedia("(hover: hover) and (pointer: fine) and (min-width: 801px)");
     let socialCloseTimer = 0;
+    /* 打开弹窗那一刻的页面纵向位置：手机端判"是不是真的滚了"用（见下） */
+    let socialPopoverScrollY = 0;
     /*
      * 滚动期间弹窗的规矩（配合下面的 markScrolling）：
      *  · 已经在开的：一滚动就收掉，别让它跟着卡片一起飞；
      *  · 滚动中指针扫过卡片：先记下来，页面停稳后指针还在卡上才补开。
-     * 这两条都只在桌面鼠标档（socialHoverQuery）生效，手机端的点击开合不受影响。
+     * 第一条现在手机端也生效（2026-09-18 用户报）：弹窗是 position: fixed 的，
+     * 页面一走它就干挂在原地不动，看着像被钉住，所以手指一滑就收掉。
+     * 第二条仍然只在桌面鼠标档，手机端没有 hover。
      */
     let pendingSocialLink = null;
     function closeSocialPopoversOnScroll() {
-      if (!socialHoverQuery.matches) return;
+      const anyOpen = socialPopoverLinks.some((item) => item.classList.contains("is-popover-open"));
+      if (!anyOpen) return;
+      /*
+       * 手机端给 8px 容差：点开弹窗那一下自带一两像素的抖动，
+       * 不放过它的话弹窗会开完立刻自闭。
+       */
+      if (!socialHoverQuery.matches && Math.abs(window.scrollY - socialPopoverScrollY) < 8) return;
       socialPopoverLinks.forEach((item) => {
         if (item.classList.contains("is-popover-open")) setSocialPopover(item, false);
       });
@@ -7157,6 +7258,8 @@
       window.clearTimeout(socialCloseTimer);
       if (open) {
         closeSocialPopovers(link);
+        /* 记下开窗时的页面位置，滚动判定用（手机端要 8px 容差） */
+        socialPopoverScrollY = window.scrollY;
         const popover = link.querySelector(".social-popover");
         if (popover) {
           const rect = link.getBoundingClientRect();
