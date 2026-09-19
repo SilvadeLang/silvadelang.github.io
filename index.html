@@ -2838,6 +2838,62 @@
     }
 
     /*
+     * 手机横屏的第三层灯箱（v2.2，2026-09-19 二轮加高）。
+     *
+     * 一轮先把"缩成一条缝"救回来：竖屏那套"7:10 竖框 + 100svh − 18.4rem 封顶"
+     * 是按竖屏的家具量出来的，横屏可用高只有 360~430px，减掉 294px 只剩几十像素
+     * （375×667 转横屏实测框只有 587×80.6）。一轮改法让框吃掉整格后是 189px，
+     * 用户实机看还是太小，要求"再在现在基础上加 50%"（189 × 1.5 ≈ 283px）。
+     *
+     * 二轮把 6.6rem 那笔预算重新分：原来顶栏 4.35rem + 顶栏到壳顶 .35rem 都算在
+     * 第三层高度里，现在顶栏照旧是固定层，但转屏落位会把照片中心放回竖屏的视口
+     * 比例（实测壳顶 ≈79px、顶栏底 69.6px，照片顶 85.6px，正好从顶栏下面露出来），
+     * 所以那 4.35rem 不再从第三层扣；竖屏给返回键留的 rail 顶白 3rem 也在横屏
+     * 压到 .4rem（横向图两侧本来就有 contain 留白，返回键压在框左上角不会盖住画面）。
+     *
+     * 于是 375 高时：第三层 = 100svh − 3.3rem = 322.2px，
+     * 照片框 = 322.2 − rail 上下留白 8.8 − 画师行 30 = 283.4px，正好是 189 的 1.5 倍。
+     * 画师行 / 状态行仍在照片下方：375 高时它们落到首屏下沿之外（往下轻滑可见），
+     * 这是"照片 +50%"和"照片中心不跳"同时成立时必然的取舍，不再为了塞下两行字压小照片。
+     * 高度用 svh（工具栏展开时的高度），和竖屏那条封顶同一档口径；地址栏收起时
+     * 底部会多留一点，比反过来被工具栏盖住强。
+     * 画师 / 合委人那行是 auto 行：名字长、折成两行时自动吃掉图的高度，不会溢出。
+     */
+    @media (max-width: 800px) and (orientation: landscape) {
+      .gallery-shell[data-level="detail"] .gallery-level.is-active[data-gallery-level="detail"] {
+        height: calc(100svh - 3.3rem);
+        grid-template-rows: minmax(0, 1fr) auto;
+      }
+      /*
+       * 竖屏是"框按内容撑开、贴上排"；横屏要让框吃掉整格高度。
+       * 顶白只留 .4rem：返回键贴在框左上角，横向图 / 竖图在 contain 后左右都有留白，
+       * 不会盖到画面；真正贴边的超宽图会压到按钮下面，按钮仍有半透明底和描边可辨认。
+       */
+      .gallery-shell[data-level="detail"] .gallery-rail {
+        align-items: stretch;
+        padding-top: .4rem;
+      }
+      .gallery-shell[data-level="detail"] .gallery-slide,
+      .gallery-shell[data-level="detail"] .gallery-slide-image {
+        height: 100%;
+        aspect-ratio: auto;
+        max-height: none;
+      }
+      /*
+       * 灯箱态下这一屏只放灯箱：页面大标题（"风雪留下的轮廓"）在横屏会被顶到
+       * 顶栏底下、和 logo 叠在一起（竖屏没事 —— 竖屏是长滚动，标题本来就在灯箱
+       * 上方该在的位置）。这里不画它，用 visibility 不用 display：占位留着，
+       * 灯箱的位置不会因为标题一消失就抽一下。
+       * 转屏落位会把照片中心放回竖屏比例（见 realignAfterRotation），正常落位后
+       * 标题其实已经在视口上方；这条留着兜住转屏后第一帧和落位被手势打断的情况。
+       */
+      .works.is-gallery-focus .section-heading,
+      .suit.is-gallery-focus .section-heading {
+        visibility: hidden;
+      }
+    }
+
+    /*
      * iPad / 安卓平板这类"触摸大屏"：版式还是桌面版（宽度 > 800px），
      * 但手上操作要按手机端来。浏览器原生的横向吸附在大卡片上就是"划一下只动一点"，
      * 所以这里把横滑交给脚本接管（和手机端同一套：1:1 跟手 + 松手惯性），
@@ -3338,8 +3394,13 @@
       .story-dialog-header {
         padding: 1rem;
       }
-      /* 手机端：弹窗中文标题按配置断行（"古老冰原的 / 守望者"），英文标题不受影响 */
-      .story-title-line { display: block; }
+      /*
+       * 手机端：弹窗中文标题按配置断行（"远古冰原的 / 守望者"），英文标题不受影响。
+       * v2.2 起只竖屏断：横屏（哪怕还是手机版式）宽度够，一行放得下就一行。
+       */
+      @media (orientation: portrait) {
+        .story-title-line { display: block; }
+      }
       .story-dialog-body {
         padding: 1rem;
         font-size: 1rem;
@@ -3512,7 +3573,7 @@
               <h3>冰川时代</h3>
               <p><span class="timeline-zh-break">在剑齿虎尚未消失的年代，</span>白色身影沿着冰原的风向移动。<span class="timeline-en">Before the sabretooths vanished, a white figure moved with the wind across the icefields.</span></p>
             </div>
-            <div class="timeline-item timeline-story-trigger" role="button" tabindex="0" data-story-trigger="icefield" aria-label="打开《古老冰原的守望者》全文">
+            <div class="timeline-item timeline-story-trigger" role="button" tabindex="0" data-story-trigger="icefield" aria-label="打开《远古冰原的守望者》全文">
               <span class="story-trigger-cta" aria-hidden="true">READ ARCHIVE<svg class="arrow-ne" viewBox="0 0 12 12" focusable="false"><path d="M3.4 8.6 8.6 3.4M4.9 3.4h3.7v3.7"/></svg></span>
               <b>02 / Hrosgaard</b>
               <h3>赫罗斯加德</h3>
@@ -3697,7 +3758,7 @@
             <span>Designed for a quiet, blue-edged world.</span>
             <span class="footer-sign">
               <!-- 最近更新日期：以后每次改完站点顺手把这里改成当天（日/月/年） -->
-          <span>Last updated 18/09/2026 · v2.1</span>
+          <span>Last updated 19/09/2026 · v2.2</span>
               <img class="footer-signature" src="assets/silvade-signature.png" alt="Silvade 签名" width="600" height="328" loading="lazy" decoding="async">
             </span>
           </footer>
@@ -3724,7 +3785,7 @@
       <div class="story-dialog-header">
         <div>
           <p class="story-dialog-kicker">Hrosgaard / <span class="kicker-break">Northern Frontier</span></p>
-          <h2 id="story-dialog-title" data-story-title-zh="古老冰原的守望者" data-story-title-zh-break="古老冰原的" data-story-title-en="The Guardian of the Ancient Icefield">古老冰原的守望者</h2>
+          <h2 id="story-dialog-title" data-story-title-zh="远古冰原的守望者" data-story-title-zh-break="远古冰原的" data-story-title-en="The Guardian of the Ancient Icefield">远古冰原的守望者</h2>
         </div>
         <div class="story-actions">
           <button class="story-language" type="button" data-story-language><span class="lang-toggle-label" data-lang-label>ENGLISH</span></button>
@@ -5320,6 +5381,14 @@
           }
           /* 这一层刚显示出来，先把头几张解码好，第一下横滑就不会卡 */
           warmRailImages(galleryRails[level], level === "detail" ? 3 : 6);
+          /* 转屏位置保持的参考物跟着换层重记（进 / 出灯箱后立刻转屏也不会拿旧锚点） */
+          window.silvadeRememberRotationAnchor?.();
+          /*
+           * 这一层还在播 .gallery-level-in（0.42s、整体从下往上 12px），
+           * 上面那一量会连动画位移一起量进去（灯箱照片中心会比停稳后低 12px）。
+           * 动画结束后再记一次，转屏前后才是同一个视觉位置。
+           */
+          window.setTimeout(() => window.silvadeRememberRotationAnchor?.(), 480);
         });
       };
 
@@ -7109,8 +7178,9 @@
           const zhTitle = title.dataset.storyTitleZh || "";
           const breakAfter = title.dataset.storyTitleZhBreak || "";
           /*
-           * 手机端中文标题允许手动断行（比如"古老冰原的 / 守望者"）：
-           * 用两个 span，手机端第二段 display:block 换行，桌面端仍是普通一行。
+           * 手机端中文标题允许手动断行（比如"远古冰原的 / 守望者"）：
+           * 用两个 span，手机竖屏第二段 display:block 换行，横屏和桌面端都是普通一行
+           * （v2.2 起横屏不再断 —— 横屏宽度够，一行放得下）。
            * 英文标题不参与断行。
            */
           if (language === "zh" && breakAfter && zhTitle.startsWith(breakAfter)) {
@@ -7375,6 +7445,8 @@
     const desktopPagerQuery = window.matchMedia("(hover: hover) and (pointer: fine) and (min-width: 801px)");
     let pageTurnLocked = false;
     let pageTurnFrame = 0;
+    /* 转屏落位要用：上一次导航高亮算出来的"当前第几页"（见 realignAfterRotation） */
+    let lastPageIndex = 0;
     const pageTurnDuration = 920;
 
     const closestPageIndex = () => {
@@ -7388,6 +7460,7 @@
 
     const syncActiveNav = (forcedIndex) => {
       const index = Number.isInteger(forcedIndex) ? forcedIndex : closestPageIndex();
+      lastPageIndex = index;
       const currentSection = pageSections[index];
       navLinks.forEach((link) => {
         const isActive = link.getAttribute("href") === `#${currentSection?.id}`;
@@ -7447,6 +7520,189 @@
       window.addEventListener(type, () => {
         lastUserGestureAt = performance.now();
         cancelPageLanding();
+      }, { passive: true });
+    });
+
+    /*
+     * 转屏位置保持（v2.2 二轮，2026-09-19）。
+     *
+     * 一轮的做法是"转屏后重新落位"：灯箱开着就把灯箱壳对齐到顶栏下面，
+     * 否则把当前页页顶对齐视口顶。用户实机转屏时反馈两件事：
+     *   1) 页面中间转屏会被拽回页顶，位置"有点偏移"；
+     *   2) 某个页面里的灯箱开着（哪怕人已经翻到别的页 / 滑到别处），
+     *      转屏会被那盏灯箱"直接跳过去"——因为 querySelector 找的是全文档第一个
+     *      data-level="detail" 的壳，不是"人正在看的那盏"。
+     *
+     * 现在改成"位置保持"：转屏前记下人正在看的参考物，转屏后把参考物放回
+     * 原来的视口位置，不做任何固定落点。
+     *   - 参考物是第三层灯箱的照片框（照片框可见、中心落在视口 12%~88% 之间）：
+     *     记照片中心的视口比例。框在横屏比竖屏高 50%，用中心比用顶边稳，
+     *     照片会围绕原来的中心向上下长，前后中心几乎不动。
+     *   - 其余情况：记"占屏最多"的那节 section 的顶边像素偏移。页面中间转屏
+     *     就停在页面中间，不再被拽回 section 顶。
+     * 转屏后 130 / 380 / 760 / 1180ms 各补一次（iOS 会连发几次 resize）；
+     * 600ms 内有用户手势就让位，不跟人抢。转回竖屏同样按这套回来。
+     *
+     * 注意：这里只在 orientation 真正翻转时动手（isLandscape 与 wasLandscape 比较），
+     * 手机地址栏收放那种"只改高"的 resize 不会触发，避免和 viewportNoise 那套打架。
+     */
+    const orientationLandscape = window.matchMedia("(orientation: landscape)");
+    let wasLandscape = orientationLandscape.matches;
+    let rotationTimers = [];
+    let rotationSettling = false;
+    let rotationAnchorFrame = 0;
+    /* 参考物：frame 是第三层照片框（记中心比例），section 是当前 section（记顶边像素） */
+    const rotationAnchor = { frame: null, frameRatio: 0, section: null, sectionTop: 0 };
+
+    const viewportH = () => window.innerHeight || document.documentElement.clientHeight || 1;
+
+    const visibleDetailFrame = () => {
+      /*
+       * 宽版式（>800，平板 / 手机横屏切到"一屏一页"）的灯箱是 section 内的整页暗层：
+       * 暗层必须贴住视口四条边，照片位置由暗层自己的版式决定，不能靠挪 section 顶来
+       * "保持中心"（实测 874×402 会把 section 顶推到 +36px，暗层上方露出 36px 别的页）。
+       * 那条路径继续用下面的 section 锚点 + 顶边锁 0；位置保持只服务窄手机横屏。
+       */
+      if (!window.matchMedia("(max-width: 800px)").matches) return null;
+      const vh = viewportH();
+      let best = null;
+      document.querySelectorAll('.gallery-shell[data-level="detail"]').forEach((shell) => {
+        const shellRect = shell.getBoundingClientRect();
+        if (shellRect.bottom <= 0 || shellRect.top >= vh) return;
+        const rail = shell.querySelector(".gallery-detail-rail");
+        if (!rail) return;
+        const railRect = rail.getBoundingClientRect();
+        let slide = null;
+        let slideVisible = 0;
+        rail.querySelectorAll(".gallery-slide").forEach((candidate) => {
+          const rect = candidate.getBoundingClientRect();
+          const visible = Math.min(rect.right, railRect.right) - Math.max(rect.left, railRect.left);
+          if (visible > slideVisible) {
+            slideVisible = visible;
+            slide = candidate;
+          }
+        });
+        const frame = slide && slide.querySelector(".gallery-slide-image");
+        if (!frame) return;
+        const rect = frame.getBoundingClientRect();
+        if (rect.height <= 0 || rect.width <= 0) return;
+        const centerRatio = (rect.top + rect.height / 2) / vh;
+        /* 只认"照片中心真的落在屏内"的那一盏；否则说明人在看别的地方 */
+        if (centerRatio < .12 || centerRatio > .88) return;
+        const shellVisible = Math.min(shellRect.bottom, vh) - Math.max(shellRect.top, 0);
+        if (!best || shellVisible > best.shellVisible) {
+          best = { frame, centerRatio, shellVisible };
+        }
+      });
+      return best;
+    };
+
+    const visibleSection = () => {
+      const vh = viewportH();
+      let best = null;
+      pageSections.forEach((section) => {
+        const rect = section.getBoundingClientRect();
+        const visible = Math.min(rect.bottom, vh) - Math.max(rect.top, 0);
+        if (visible <= 0) return;
+        if (!best || visible > best.visible) best = { section, visible, top: rect.top };
+      });
+      return best;
+    };
+
+    const rememberRotationAnchor = () => {
+      if (rotationSettling) return;
+      const section = visibleSection();
+      if (section) {
+        rotationAnchor.section = section.section;
+        rotationAnchor.sectionTop = section.top;
+      }
+      const detail = visibleDetailFrame();
+      rotationAnchor.frame = detail ? detail.frame : null;
+      if (detail) rotationAnchor.frameRatio = detail.centerRatio;
+    };
+
+    /* scroll / resize 里用 rAF 合并，每帧最多量一次布局，别把滚动拖慢 */
+    const queueRememberRotationAnchor = () => {
+      if (rotationAnchorFrame) return;
+      rotationAnchorFrame = window.requestAnimationFrame(() => {
+        rotationAnchorFrame = 0;
+        rememberRotationAnchor();
+      });
+    };
+    window.silvadeRememberRotationAnchor = queueRememberRotationAnchor;
+
+    const landRotationAnchor = () => {
+      if (performance.now() - lastUserGestureAt < 600) return;
+      if (pageTurnLocked) return;
+      const vh = viewportH();
+      const mobileLayout = window.matchMedia("(max-width: 800px)").matches;
+      /* 宽版式的灯箱是整页暗层，照片中心由暗层自己的版式决定，不能靠挪 section 顶来追 */
+      let anchor = mobileLayout ? rotationAnchor.frame : null;
+      let kind = "frame";
+      if (anchor && anchor.isConnected) {
+        const rect = anchor.getBoundingClientRect();
+        const ratio = rect.height > 0 ? (rect.top + rect.height / 2) / vh : -1;
+        /* 转屏后照片框不在屏内（旧锚点可能来自另一页 / 另一盏灯箱），退回 section */
+        if (rect.height <= 0 || ratio < .04 || ratio > .96) {
+          anchor = null;
+          kind = "section";
+        }
+      } else {
+        anchor = null;
+        kind = "section";
+      }
+      if (!anchor) {
+        anchor = rotationAnchor.section;
+        kind = "section";
+      }
+      if (!anchor || !anchor.isConnected) return;
+      let delta = 0;
+      if (kind === "frame") {
+        const rect = anchor.getBoundingClientRect();
+        delta = rect.top + rect.height / 2 - rotationAnchor.frameRatio * vh;
+      } else {
+        /* 宽版式 + 当前 section 就是灯箱态：整页暗层锁在视口顶，四条边盖满 */
+        const lockTop = !mobileLayout && anchor.classList.contains("is-gallery-focus");
+        const targetTop = lockTop ? 0 : rotationAnchor.sectionTop;
+        delta = anchor.getBoundingClientRect().top - targetTop;
+      }
+      if (Math.abs(delta) < .5) return;
+      const maxScroll = Math.max(0, document.documentElement.scrollHeight - vh);
+      const next = Math.max(0, Math.min(maxScroll, window.scrollY + delta));
+      if (Math.abs(next - window.scrollY) < .5) return;
+      window.scrollTo(0, next);
+      window.dispatchEvent(new Event("scroll"));
+    };
+
+    const realignAfterRotation = () => {
+      const isLandscape = orientationLandscape.matches;
+      if (isLandscape === wasLandscape) return;
+      wasLandscape = isLandscape;
+      rotationSettling = true;
+      rotationTimers.forEach((id) => window.clearTimeout(id));
+      rotationTimers = [];
+      const land = () => {
+        if (!rotationSettling) return;
+        landRotationAnchor();
+      };
+      land();
+      [130, 380, 760, 1180].forEach((delay) => {
+        rotationTimers.push(window.setTimeout(land, delay));
+      });
+      rotationTimers.push(window.setTimeout(() => {
+        rotationSettling = false;
+        queueRememberRotationAnchor();
+      }, 1420));
+    };
+    orientationLandscape.addEventListener?.("change", realignAfterRotation);
+    window.addEventListener("resize", realignAfterRotation, { passive: true });
+    /* 转屏补落位期间手一碰就让位，并把锚点更新到用户刚滑到的位置 */
+    ["touchstart", "pointerdown", "wheel", "keydown"].forEach((type) => {
+      window.addEventListener(type, () => {
+        rotationTimers.forEach((id) => window.clearTimeout(id));
+        rotationTimers = [];
+        rotationSettling = false;
+        queueRememberRotationAnchor();
       }, { passive: true });
     });
 
@@ -7765,6 +8021,7 @@
     /* 翻页动画期间直接跳过，动画结束时会再精确同步一次（见 turnToPage） */
     window.addEventListener("scroll", () => {
       if (pageTurnLocked) return;
+      queueRememberRotationAnchor();
       syncHomeReturn();
       syncActiveNav();
     }, { passive: true });
