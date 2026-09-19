@@ -7754,9 +7754,60 @@
       pageTurnFrame = requestAnimationFrame(animatePageTurn);
     };
 
+    /*
+     * 一次"滑一下"只翻一页（2026-09-19 三轮；当天又补了下面的"锁死"修复）。
+     *
+     * 触控板一次快划后面跟着一长串惯性 wheel 事件（常持续 1~2 秒、间隔 8~16ms），
+     * 而翻页动画只有 920ms —— 动画一结束，惯性尾巴上任何一个事件都会再翻一页，
+     * 表现就是"轻滑一下翻好几页"。鼠标滚轮则是离散的格子（Windows Chrome 一格 100px）。
+     *
+     * 所以把一串连续 wheel 当成**一次手势**：翻过一页就整串吃掉，尾巴再长也不翻。
+     * 难的是"新手势"怎么认 —— 只看静默间隔不行：手指再次落到触摸板上时，系统会
+     * 掐掉惯性直接续上新的一串，中间可能一点空档都没有，那就把人一起锁住了
+     * （用户实机反馈：滑一次之后"基础滑动无操作"，得动一下 / 点一下鼠标才恢复）。
+     *
+     * 判定"手又落下来了"有三条，满足任意一条就解锁：
+     *   1) 静默超过 WHEEL_GESTURE_GAP_MS（鼠标滚轮停一下再滚走这条）；
+     *   2) 数值突然上抬 —— 惯性是"只减不增"的：尾巴里冒出一笔又大又跳的数、且下一笔
+     *      还撑得住（jumped + confirmedJump），或者连着两笔都在往上抬（rising），
+     *      就是手指又落下、重新加速了（要"下一笔撑住"是防合并事件造出的假上抬）；
+     *   3) 兜底：距上次翻页超过 WHEEL_GUARD_MAX_MS，且这一笔本身够大。
+     * 另外，按下鼠标 / 敲键盘 / 手指碰到触摸屏会直接解锁（见 releaseWheelGesture）。
+     * 鼠标滚轮停一下再滚算新手势，一格一页照旧。deltaMode 归一化成像素
+     * （Firefox 的鼠标滚轮报的是"行"，deltaMode 1）。
+     */
+    const WHEEL_GESTURE_GAP_MS = 140;
+    const WHEEL_GESTURE_MIN_PX = 20;
+    const WHEEL_FRESH_JUMP_PX = 12;
+    const WHEEL_FRESH_JUMP_RATIO = 1.6;
+    const WHEEL_FRESH_CONFIRM_RATIO = .6;
+    const WHEEL_FRESH_RISE_MIN_PX = 4;
+    const WHEEL_FRESH_RISE_RATIO = 1.25;
+    const WHEEL_GUARD_MAX_MS = 3000;
+    const WHEEL_GUARD_TIMEOUT_MIN_PX = 8;
+    let wheelGestureConsumed = false;
+    let wheelGestureDelta = 0;
+    let wheelLastAbs = 0;
+    let wheelPrevAbs = 0;
+    let wheelFreshCandidate = 0;
+    let lastWheelAt = -1e9;
+    let wheelGuardAt = -1e9;
+
+    const releaseWheelGesture = () => {
+      wheelGestureConsumed = false;
+      wheelGestureDelta = 0;
+    };
+    /* 人手一碰（点鼠标 / 敲键盘 / 摸触摸屏）就把惯性那串放掉 */
+    ["pointerdown", "touchstart", "keydown"].forEach((type) => {
+      window.addEventListener(type, releaseWheelGesture, { passive: true });
+    });
+
     const handlePageWheel = (event) => {
       if (!desktopPagerQuery.matches) return;
       if (document.body.classList.contains("modal-open")) return;
+      const now = performance.now();
+      const sinceLastWheel = now - lastWheelAt;
+      lastWheelAt = now;
       /*
        * 兽装 / 委托第三层是灯箱态：滚轮整页锁死。
        * 这里必须自己吃掉默认滚动 —— 不 preventDefault 的话，滚轮会顺着页面
@@ -7769,8 +7820,38 @@
         return;
       }
       event.preventDefault();
-      if (pageTurnLocked) return;
-      const direction = Math.sign(event.deltaY);
+      /* 捏合 / Ctrl + 滚轮不是翻页手势，别算进累计量 */
+      if (event.ctrlKey) return;
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewportH() : 1;
+      const delta = event.deltaY * unit;
+      const absDelta = Math.abs(delta);
+      const jumped = absDelta >= WHEEL_FRESH_JUMP_PX && absDelta >= wheelLastAbs * WHEEL_FRESH_JUMP_RATIO;
+      const rising = wheelLastAbs >= WHEEL_FRESH_RISE_MIN_PX
+        && absDelta >= wheelLastAbs * WHEEL_FRESH_RISE_RATIO
+        && wheelLastAbs >= wheelPrevAbs * WHEEL_FRESH_RISE_RATIO;
+      /* "突然上抬"要下一笔也撑得住才算数 —— 合并事件偶尔会造出一笔假的上抬 */
+      const confirmedJump = wheelFreshCandidate > 0 && absDelta >= wheelFreshCandidate * WHEEL_FRESH_CONFIRM_RATIO;
+      wheelPrevAbs = wheelLastAbs;
+      wheelLastAbs = absDelta;
+      wheelFreshCandidate = jumped && !confirmedJump ? absDelta : 0;
+      if (sinceLastWheel > WHEEL_GESTURE_GAP_MS
+        || (wheelGestureConsumed && now - wheelGuardAt > WHEEL_GUARD_MAX_MS && absDelta >= WHEEL_GUARD_TIMEOUT_MIN_PX)
+        || (wheelGestureConsumed && (confirmedJump || rising))) {
+        releaseWheelGesture();
+      }
+      if (wheelGestureConsumed) return;
+      if (pageTurnLocked) {
+        /* 动画多半就是这串手势触发的：整串作废，动画结束不再补翻 */
+        wheelGestureConsumed = true;
+        wheelGestureDelta = 0;
+        return;
+      }
+      wheelGestureDelta += delta;
+      if (Math.abs(wheelGestureDelta) < WHEEL_GESTURE_MIN_PX) return;
+      const direction = Math.sign(wheelGestureDelta);
+      wheelGestureConsumed = true;
+      wheelGuardAt = now;
+      wheelGestureDelta = 0;
       if (!direction) return;
       const targetIndex = Math.max(0, Math.min(pageSections.length - 1, closestPageIndex() + direction));
       turnToPage(targetIndex);
