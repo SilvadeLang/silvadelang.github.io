@@ -5,6 +5,7 @@ Personal archive for Silvade — lore, commissioned artworks, fursuit photos and
 
 - 线上站点 / Live site：https://silvadelang.github.io/
 - 手机入口 / Mobile entry：https://silvadelang.github.io/mobile.html
+- 版本更新说明 / Version history：[CHANGELOG.md](CHANGELOG.md)
 
 ## 版权声明 / Copyright
 
