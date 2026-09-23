@@ -2068,6 +2068,35 @@
       transform: translateY(0);
       }
     }
+    /*
+     * 窄桌面档（801–1244px）的避让（2026-09-24 用户定稿：方案 B + 动画）。
+     *
+     * 窗口越窄卡片越窄：账号大字（strong）从左往右长，OPEN PROFILE 从右往左占，
+     * 实测 X 要 1245px、bilibili 要 1161px 以上两者才不打架（二分量的，脚本
+     * `_v24_work\probe-social-threshold.js`），所以 801–1244 这段会压住账号名。
+     *
+     * 做法：平时一个字不动，鼠标上移（或键盘聚焦）时把账号名整行上浮，
+     * 让出下面那条给浮入的 OPEN PROFILE。**不动卡片内边距、不加高卡片** ——
+     * 加 padding-bottom 那版（真·方案 B）会让这两张的账号名比 QQ / Others
+     * 低一截，一排四张不在同一条线上，所以改成纯 transform。
+     *
+     * 触发条件跟上面 CTA 那两条完全一样（同一道 html:not(.is-touch-input):not(.is-scrolling)），
+     * 免得滚动时指针正好停在卡上，字自己往上跳一下而 CTA 不出现。
+     * 整段只在 hover:hover 的设备生效：平板上没有悬停，也就没有"字跳"这回事。
+     * 超过 1244px 原样，不动。
+     */
+    @media (hover: hover) and (min-width: 801px) and (max-width: 1244px) {
+      .social-link[data-social="bilibili"] > strong,
+      .social-link[data-social="x"] > strong {
+        transition: transform .24s cubic-bezier(.22, .8, .28, 1);
+      }
+      html:not(.is-touch-input):not(.is-scrolling) .social-link[data-social="bilibili"]:hover > strong,
+      html:not(.is-touch-input):not(.is-scrolling) .social-link[data-social="x"]:hover > strong,
+      .social-link[data-social="bilibili"]:focus-visible > strong,
+      .social-link[data-social="x"]:focus-visible > strong {
+        transform: translateY(-1.75rem);
+      }
+    }
     .social-popover {
       position: fixed;
       z-index: 20;
