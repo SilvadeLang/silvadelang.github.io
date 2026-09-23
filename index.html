@@ -22,6 +22,16 @@
   <link rel="preload" href="assets/fonts/silvade-sans-sc.woff2" as="font" type="font/woff2" crossorigin>
   <style>
     /*
+     * 这个文件自上而下分三段：<style> → HTML 结构 → <script>。
+     *   CSS：字体（@font-face）→ 变量（:root）→ 基础与顶部导航 → 首页 hero
+     *        → 跨五页背景层 .poly-bg → 故事页（含两个剧情弹窗）→ 委托页 / 兽装页
+     *        （同一套三层相册）→ 尾页与页脚 → 各档媒体查询（手机 800px、平板 801~880px、
+     *        高分辨率 --wide-scale）。
+     *   HTML：顶栏 → 首页 → 故事页 → 委托页 → 兽装页 → 尾页 → 页脚。
+     *   JS：相册数据与三层逻辑 → 语言切换 → 滚动 / 版式自适应 → 冰墙画板。
+     * 单文件是刻意的：没有构建步骤，双击就能跑。
+     */
+    /*
      * 站点自带字体（全部 OFL 协议，免费可商用、允许自托管）：
      *   宋体一脉 → 思源宋体 Noto Serif SC（替代系统宋体 / 苹方宋体）
      *   黑体一脉 → 思源黑体 Noto Sans SC（替代微软雅黑 / 苹方）
@@ -528,11 +538,7 @@
        * 同等权重会被它盖回来。
        */
       .section.social { background-image: none; }
-      /*
-       * 2026-09-17：手机档回到 v1.3 的硬分界——每页只有自己的纯色，
-       * 页与页之间不再有接缝渐变带（--seam-from / .seam-live / .seam-live::before
-       * 这一套整体退役，脚本里对应的 syncSeam 也一并删掉）。
-       */
+      /* 2026-09-17：手机档回到 v1.3 的硬分界——页与页之间不再有接缝渐变带（旧的 --seam-from / .seam-live 一套已退役） */
     }
     .section-kicker {
       color: var(--ice-strong);
@@ -3492,7 +3498,7 @@
       </div>
       <nav class="topnav" aria-label="主导航">
         <a href="#lore">STORY</a>
-        <a href="#works">COMMISIONS</a>
+        <a href="#works">COMMISSIONS</a>
         <a href="#suit">FURSUIT</a>
         <a href="#elsewhere">SOCIAL LINKS</a>
       </nav>
@@ -3505,7 +3511,7 @@
       </button>
       <nav class="topbar-menu" id="topbar-menu" data-topbar-menu aria-label="页面目录" aria-hidden="true">
         <a href="#lore">STORY</a>
-        <a href="#works">COMMISIONS</a>
+        <a href="#works">COMMISSIONS</a>
         <a href="#suit">FURSUIT</a>
         <a href="#elsewhere">SOCIAL LINKS</a>
       </nav>
@@ -3853,6 +3859,12 @@
   </div>
 
   <script>
+    /*
+     * JS 分四块：① galleryData + 三层相册（堆叠 / 缩略图 / 灯箱）的全部交互；
+     * ② 语言切换与两个剧情弹窗；③ 版式自适应（syncStackFit / syncLoreFit / 转屏落位 /
+     * 滚轮翻页）；④ 冰墙画板（碎冰形变场 + 逐页配色 + 兜底纯色）。
+     * 找不到某个函数时先按这四块定位。
+     */
     /*
      * 相册通用逻辑：堆叠 → 缩略图 → 大图，fursuit 与 commissions 共用。
      * 每个 [data-gallery] 容器由 galleryData 中的同名配置驱动：
