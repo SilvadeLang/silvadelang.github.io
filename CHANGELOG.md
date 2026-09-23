@@ -1,7 +1,7 @@
 # 版本更新说明 / Version History
 
-当前版本 / Current version：**260919（v2.2）**
-最后更新 / Last updated：2026-09-23
+当前版本 / Current version：**260924（v2.3）**
+最后更新 / Last updated：2026-09-24
 
 | 版本 Version | 日期 Date | 更新内容 / What's new |
 | --- | --- | --- |
@@ -12,6 +12,7 @@
 | 260917（v2.0） | 2026-09-17 | 从一万年前搬来了一批冰，给档案室右边砌了面冰墙。<br>*A batch of ice was hauled in from ten thousand years ago, raising an ice wall along the right side of the archive.* |
 | 260918（v2.1） | 2026-09-18 | 更新了西文字体。<br>*Updated the Latin typefaces.* |
 | 260919（v2.2） | 2026-09-19 | 修复了手机翻转至横屏时灯箱过小的问题，修复了鼠标板一次翻页过多的问题。<br>*Fixed the lightbox shrinking to a sliver when a phone is rotated to landscape, and the trackpad flipping several pages in one swipe.* |
+| 260924（v2.3） | 2026-09-24 | 提升了桌面端翻页流畅度。<br>*Improved page-turning smoothness on desktop.* |
 
 ---
 

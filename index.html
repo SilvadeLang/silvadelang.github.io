@@ -3764,8 +3764,13 @@
             <span>Designed for a quiet, blue-edged world.</span>
             <span class="footer-sign">
               <!-- 最近更新日期：以后每次改完站点顺手把这里改成当天（日/月/年） -->
-          <span>Last updated 19/09/2026 · v2.2</span>
-              <img class="footer-signature" src="assets/silvade-signature.png" alt="Silvade 签名" width="600" height="328" loading="lazy" decoding="async">
+              <span>Last updated 24/09/2026 · v2.3</span>
+              <!--
+                签名图（209KB PNG）的 src 交给脚本写：桌面端走图像加载闸门
+                （滚动期间不下载、停稳再补），手机端照旧 loading="lazy"。
+                宽高属性留着占位，图没来也不会让页脚抽动。
+              -->
+              <img class="footer-signature" data-signature-src="assets/silvade-signature.png" alt="Silvade 签名" width="600" height="328" loading="lazy" decoding="async">
             </span>
           </footer>
         </div>
@@ -4111,11 +4116,6 @@
       const photoPath = (setId, index, size) =>
         `${galleryConfig.base}/${setId}/${size}/${String(index).padStart(2, "0")}.jpg`;
       /*
-       * 提前解码过的封面元素留在这里（见 buildGallerySets 里的 prefetchStackCovers）。
-       * 数组得挂在这一层作用域上，不然预取那一波跑完就被回收，解码结果也跟着没了。
-       */
-      const coverCache = [];
-      /*
        * 预取 / 预热现在的放行信号是"翻到故事页的动画结束"（silvade:page-ready，
        * 由 turnToPage 派发），不再看首页视频的 canplay —— 视频一能播就该一口气放完，
        * 后台那几兆缩略图的下载 + 解码挤在它开头一两秒里，视频就会卡一下（2026-09-17）。
@@ -4306,6 +4306,67 @@
         }, 300);
       };
 
+      /* ---------- 图像加载闸门（2026-09-23，用户点名的规则） ---------- */
+      /*
+       * 规则：**翻到故事页之后才开始预载堆叠封面；只要页面在动（翻页动画、滚轮惯性、
+       * 横向相册滑动），不管上一张有没有加载完，都不再新开一张图的下载；停稳之后再继续。**
+       *
+       * 背景：桌面端刷新后第一次翻到委托页 / 兽装页会掉帧，偶尔还"突然卡一下"。
+       * 两个来源：① 封面图本来是 loading="lazy"，浏览器在第一次滚动、图快进视口时
+       * 才开始下载 + 解码；② 隐形预热层（warmGalleryCovers）把十几张封面一次性画到
+       * 屏幕上做显存上传，那一帧的主线程活儿全挤在一起。
+       * 现在把封面 src 交给这里的队列按静止时段一个一个补，滚动期间一律不发起；
+       * 预热层也改成分批画、且只在静止时画（见下面的 warmGalleryCovers）。
+       */
+      const desktopGalleryGate = !window.matchMedia("(max-width: 800px)").matches;
+      const coverLoadQueue = [];
+      let coverLoadPump = 0;
+      let coverLoadArmed = false;   /* 翻到故事页（或直接跳到更后面的页）之后才放行 */
+      const COVER_LOAD_GAP_MS = 90;
+      /*
+       * 页面在动吗？两个信号都现成：
+       *   - .is-scrolling 由滚动 / 滚轮监听挂在 <html> 上，停稳 180ms 自动摘掉；
+       *   - 横向相册横排正在滑动 / 吸附时，会登记在 galleryMovingRails 里。
+       * 翻页动画期间一定会派发 scroll，所以也覆盖在第一条里。
+       */
+      const pageIsMoving = () =>
+        pageTurnLocked ||
+        document.documentElement.classList.contains("is-scrolling") ||
+        galleryMovingRails.size > 0;
+      const pumpCoverLoads = () => {
+        coverLoadPump = 0;
+        if (!coverLoadArmed) return;
+        if (pageIsMoving()) {
+          coverLoadPump = window.setTimeout(pumpCoverLoads, 120);
+          return;
+        }
+        const item = coverLoadQueue.shift();
+        if (!item) return;
+        const { image, src } = item;
+        if (image.isConnected && !image.getAttribute("src")) {
+          /*
+           * 第 2 张往后带 loading="lazy"：在首页这是为了"别一进站就下"。
+           * 但轮到它排队时页面可能还在很下面，浏览器会一直等到它快进视口才下 ——
+           * 那就又变成"滚动中才开始下载"了。所以轮到谁，谁就立刻转 eager。
+           */
+          image.loading = "eager";
+          image.src = src;
+          if (typeof image.decode === "function") image.decode().catch(() => {});
+        }
+        if (coverLoadQueue.length) {
+          coverLoadPump = window.setTimeout(pumpCoverLoads, COVER_LOAD_GAP_MS);
+        }
+      };
+      const queueCoverLoad = (image, src) => {
+        coverLoadQueue.push({ image, src });
+        if (coverLoadArmed && !coverLoadPump) coverLoadPump = window.setTimeout(pumpCoverLoads, 0);
+      };
+      const armCoverLoads = () => {
+        if (coverLoadArmed) return;
+        coverLoadArmed = true;
+        if (!coverLoadPump) coverLoadPump = window.setTimeout(pumpCoverLoads, 0);
+      };
+
       const buildGallerySets = () => {
         galleryRails.sets.replaceChildren();
         fursuitSets.forEach((set, position) => {
@@ -4334,7 +4395,14 @@
             const covers = Math.max(1, Math.min(4, stackable));
             for (let depth = 0; depth < covers; depth += 1) {
               const image = document.createElement("img");
-              image.src = photoPath(set.id, stackStart + depth, "thumbs");
+              /*
+               * 桌面端的封面不在这里直接写 src：交给图像闸门排队，
+               * 保证"滚动 / 翻页动画期间一张新图都不开下"（见上面的图像加载闸门）。
+               * 手机端没有翻页那一下，照旧立即写 src，行为和以前一模一样。
+               */
+              const coverSrc = photoPath(set.id, stackStart + depth, "thumbs");
+              if (desktopGalleryGate) queueCoverLoad(image, coverSrc);
+              else image.src = coverSrc;
               image.alt = "";
               image.decoding = "async";
               if (depth > 0) image.loading = "lazy";
@@ -4382,6 +4450,11 @@
          * 这里等浏览器空闲时用低优先级把它悄悄拉一次，不跟首屏（字体 / 首页视频）抢带宽。
          */
         const prefetchFirstTiles = () => {
+          /* 页面在动就先别开新下载（和图像闸门同一条规则） */
+          if (pageIsMoving()) {
+            window.setTimeout(prefetchFirstTiles, 220);
+            return;
+          }
           fursuitSets.forEach((set) => {
             if (set.comingSoon === true || set.count === 0) return;
             const stackStart = Math.max(1, Math.min(set.count, Number(set.stackStart) || 1));
@@ -4399,61 +4472,51 @@
         }
 
         /*
-         * 第一层封面的提前解码（桌面端专用，2026-09-17 按用户要求加回来）。
-         * 翻到委托页 / 兽装页时的那一下停顿，有一半是十几个封面正好在同一瞬间进入视口开始解码；
-         * 这里用最低优先级把这批封面挨个拉一遍，
-         * 拉的过程中把图解好并留住引用，翻页时直接命中缓存，不再现解。
+         * 第一层封面的预载（桌面端专用，2026-09-17 加、2026-09-23 改成走图像闸门）。
+         *
          * 开始时机 = 翻到故事页的动画结束之后（见下面的 silvade:page-ready），
-         * 不是进站就干，免得和首页视频抢带宽。
-         * 代价是进站后多下两三兆，用户确认过这个开销。
+         * 不是进站就干，免得和首页视频抢带宽 —— 视频能播就该一口气放下去，几兆图
+         * 挤在它开头那一两秒里会卡一下（用户实测）。
+         *
+         * 真正"什么时候开下"由图像加载闸门管：一次一张、只在静止时段补，
+         * 滚动 / 翻页动画期间一张都不新开（用户 2026-09-23 点名的规则）。
+         * 代价还是进站后多下两三兆，用户确认过这个开销。
          * 手机不做：竖屏一屏只放得下一两张卡片，带宽和内存也更紧张。
          */
-        const prefetchStackCovers = () => {
-          const queue = [];
-          fursuitSets.forEach((set) => {
-            if (set.comingSoon === true || set.count === 0) return;
-            const stackStart = Math.max(1, Math.min(set.count, Number(set.stackStart) || 1));
-            const covers = Math.max(1, Math.min(4, set.count - stackStart + 1));
-            for (let depth = 0; depth < covers; depth += 1) {
-              queue.push(photoPath(set.id, stackStart + depth, "thumbs"));
-            }
-          });
-          /* 一次一张、隔 160ms：不跟首页视频抢带宽，也不让解码集体挤在同一帧上 */
-          const step = () => {
-            const src = queue.shift();
-            if (!src) return;
-            const preload = new Image();
-            preload.decoding = "async";
-            if ("fetchPriority" in preload) preload.fetchPriority = "low";
-            preload.src = src;
-            if (typeof preload.decode === "function") preload.decode().catch(() => {});
-            coverCache.push(preload);   /* 留个引用，解码结果不会被立刻回收掉 */
-            window.setTimeout(step, 160);
-          };
-          step();
-        };
-        if (!window.matchMedia("(max-width: 800px)").matches) {
-          let coversQueued = false;
-          const queueCoversPrefetch = () => {
-            if (coversQueued) return;
-            coversQueued = true;
-            /* 翻页收尾那一帧先跑完（导航高亮、底色收色），再排进空闲时段 */
-            if ("requestIdleCallback" in window) {
-              window.requestIdleCallback(prefetchStackCovers, { timeout: 1500 });
-            } else {
-              window.setTimeout(prefetchStackCovers, 240);
-            }
-          };
-          /*
-           * 2026-09-17 改：启动时机从"首页视频能播 + 浏览器空闲"推到"翻到故事页的动画结束之后"。
-           * 视频只要能播就该一口气放下去，这几兆图的下载 + 解码挤在它开头的一两秒里，
-           * 视频就会卡一下（用户实测）。故事页排在委托 / 兽装前面，想到那两页必须先过这一页，
-           * 所以这个时机一样赶得上"翻页直接命中缓存"，又完全不碰首页视频。
-           * 直接跳到更后面的页也算数（detail >= 1），只是那时已经晚了一页，能帮上后面的相册。
-           */
+        if (desktopGalleryGate) {
           window.addEventListener("silvade:page-ready", (event) => {
-            if (Number(event.detail) >= 1) queueCoversPrefetch();
+            if (Number(event.detail) >= 1) armCoverLoads();
           });
+          /*
+           * 兜底：浏览器恢复滚动位置（刷新时人本来就在故事页之后）不会派发 page-ready，
+           * 这时只要已经滚过半屏就把闸门放行 —— 闸门自己会避开滚动中的时段，不会反过来添乱。
+           */
+          const armIfScrolled = () => {
+            if (coverLoadArmed) return;
+            if (window.scrollY > window.innerHeight * .5) armCoverLoads();
+          };
+          window.addEventListener("scroll", armIfScrolled, { passive: true });
+          window.addEventListener("hashchange", armIfScrolled);
+          /*
+           * 带 #works 这类深链进来、或浏览器在脚本跑到这儿之前就把滚动位置恢复了，
+           * 都可能没有新的 scroll 事件再通知我们，所以注册这一刻先看一次，稍后再看一次。
+           */
+          armIfScrolled();
+          window.setTimeout(armIfScrolled, 900);
+        }
+        /*
+         * 尾页那张签名图（209KB PNG）也走同一道闸门。
+         * 它原来是 loading="lazy"，可实测翻页的运动窗口里正好有它一笔 —— 滚到社媒页时
+         * 才开始下载 + 解码。桌面端改成入队（滚动期间不下、停稳再补；排在封面后面，
+         * 所以会和封面同一批在故事页 / 之后的静止时段里补完），手机端保持原样：
+         * 把 src 写回去、继续 loading="lazy"（快到视口才下）。
+         */
+        const signatureImage = document.querySelector(".footer-signature");
+        if (signatureImage && signatureImage.dataset.signatureSrc) {
+          const signatureSrc = signatureImage.dataset.signatureSrc;
+          delete signatureImage.dataset.signatureSrc;
+          if (desktopGalleryGate) queueCoverLoad(signatureImage, signatureSrc);
+          else signatureImage.src = signatureSrc;
         }
         /* 目录列表与堆叠卡片共用同一份数据，相册变多时自动跟着长 */
         galleryIndexList.replaceChildren();
@@ -6238,16 +6301,23 @@
       /*
        * 翻页到委托页 / 兽装页时那一下停顿，另一部分来自堆叠封面图第一次真正画到屏幕上，
        * 要现场做"上传显存"，整块内容一次性建层。
-       * 解码那步 prefetchStackCovers 已经提前做了，但"上传显存"只有真画一遍才会发生，
+       * 解码那步图像闸门（armCoverLoads 那一队）已经提前做了，但"上传显存"只有真画一遍才会发生，
        * 所以这里在首页空闲时，把同一批封面用 0.4% 透明度的副本先在视口里画一次。
        * 肉眼看不见，但等真的翻过去时纹理已经就位。手机端不走这套（它没有翻页那一下）。
        * 2026-09-17：按用户要求加回来（原样恢复，只把那句 revealMobileQuery 换成
        * window.matchMedia，免得依赖后面才声明的常量）。
+       * 2026-09-23：整批一帧画完 → 改成一次 4 张分批画，且页面在动时停手（见下面的 paintBatch）。
        */
       let galleryWarmDone = false;
       const warmGalleryCovers = (allowPartial) => {
         if (galleryWarmDone || document.querySelector(".gallery-warm")) return true;
         if (window.matchMedia("(max-width: 800px)").matches) { galleryWarmDone = true; return true; }
+        /*
+         * 页面正在动就整批不画（返回 false，外层 kick 会稍后再来一次）。
+         * 2026-09-23：这一批十几张封面原来是一帧里全画上去的，显存上传全挤在那一帧，
+         * 正好撞上用户的第一下滚动，就是那次"突变式掉帧"。
+         */
+        if (pageIsMoving()) return false;
         const vh = window.innerHeight || 0;
         /*
          * 已经翻到委托页（或更后面）就别干了：那一页的封面马上要自己画出来，
@@ -6263,12 +6333,10 @@
         document.querySelectorAll(".gallery-shell img").forEach((image) => {
           if (!image.complete || !image.naturalWidth) {
             /*
-             * 堆叠里第 2 张往后是 loading="lazy"，在首页根本不开始加载。
-             * 这里把 loading 提成 eager 再催一把——prefetchStackCovers 本来就会拉同一批图，
-             * 字节数没多花，只是把"上传显存"这一步也提前到首页空闲时。
+             * 还没就位的图不在这里催：封面什么时候开下由图像闸门决定
+             * （2026-09-23 起，滚动期间一张都不新开）。这里只记个数，
+             * 外层 kick 稍后再来看一眼。
              */
-            image.loading = "eager";
-            if (typeof image.decode === "function") image.decode().catch(() => {});
             pending += 1;
             return;
           }
@@ -6296,10 +6364,23 @@
         box.setAttribute("aria-hidden", "true");
         box.style.width = Math.ceil(maxW) + "px";
         box.style.height = Math.ceil(maxH) + "px";
-        box.append(...covers);
         document.body.append(box);
-        /* 画够几帧就撤，留久了没意义 */
-        window.setTimeout(() => box.remove(), 560);
+        /*
+         * 分批画：一次 4 张、中间隔一帧，把"上传显存"这活儿摊开。
+         * 画的过程中用户开滚就先停手（反正这层是 0.4% 透明，看不见），
+         * 等页面静止了接着画；全画完再停 560ms 撤掉。
+         */
+        let cursor = 0;
+        const paintBatch = () => {
+          if (!box.isConnected) return;
+          if (pageIsMoving()) { window.setTimeout(paintBatch, 160); return; }
+          const slice = covers.slice(cursor, cursor + 4);
+          cursor += slice.length;
+          box.append(...slice);
+          if (cursor < covers.length) { window.requestAnimationFrame(paintBatch); return; }
+          window.setTimeout(() => box.remove(), 560);
+        };
+        window.requestAnimationFrame(paintBatch);
         return true;
       };
       (() => {
