@@ -3011,6 +3011,26 @@
         margin-top: auto;
         align-self: flex-end;
       }
+      /*
+       * 社媒页那两张外链卡也补一条常驻（2026-09-24 用户点名）。
+       * 手机档（≤800）一直是常驻的，但平板这一档（>800、没有悬停）两条 hover 规则
+       * 都进不来，OPEN PROFILE 就永远 opacity: 0 —— 平板上既看不到压字、也看不到
+       * 这个跳转提示。这里照手机端那套补上：卡片底部留 3.1rem 的带子，CTA 常驻。
+       *
+       * 四张卡一起加 padding-bottom（不是只给这两张）：只给这两张加的话，同一排里
+       * 这两张的账号名会比 QQ / Others 高一截 —— 这正是用户 2026-09-24 否掉的那个版式，
+       * 所以整排一起让位，只是带子里有东西的只有这两张。桌面鼠标端一个字不动。
+       * （iPad 横屏 1024、iPad Pro 横屏 1194 都落在上面那条压字区间里，
+       *   账号名和 CTA 并排本来就会叠上，所以这条带子在这里也是必须的。）
+       */
+      .social-link { padding-bottom: 3.1rem; }
+      .social-link[data-social="bilibili"] .social-link-cta,
+      .social-link[data-social="x"] .social-link-cta {
+        right: 1.2rem;
+        bottom: .95rem;
+        opacity: .9;
+        transform: none;
+      }
     }
 
     /*
