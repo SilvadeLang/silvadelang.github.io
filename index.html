@@ -722,12 +722,13 @@
     }
     /*
      * READ ARCHIVE 后面的箭头：默认 .6em（这个字号下只有 5.5px）太小，线都快看不出来。
-     * 设定页、壁纸第二层的 OPEN PROFILE、社媒页 bilibili 卡片统一放大到 0.95em；
+     * 设定页、壁纸第二层的 OPEN PROFILE、社媒页 bilibili / X 卡片统一放大到 0.95em；
      * 其它位置（相册卡片、Say hello 等）继续用默认大小。
      */
     .story-trigger-cta .arrow-ne,
     .gallery-shell[data-layout="wallpaper"] .gallery-tile-open .arrow-ne,
-    .social-link[data-social="bilibili"] .social-link-cta .arrow-ne {
+    .social-link[data-social="bilibili"] .social-link-cta .arrow-ne,
+    .social-link[data-social="x"] .social-link-cta .arrow-ne {
       width: .95em;
       height: .95em;
       margin-left: .34em;
@@ -2017,7 +2018,6 @@
       html:not(.is-touch-input):not(.is-scrolling) .social-link:hover { color: var(--ink); background: var(--ice);
       }
     }
-    .social-link[data-social="x"] { cursor: default; }
     /*
      * 社媒字体分工（2026-09-18 用户点名，两个方向别做反）：
      *   上面的小标签（QQ / BILIBILI / X / OTHERS）退回 Inter + 等宽数字；
@@ -2038,7 +2038,12 @@
       font-weight: var(--serif-weight);
     }
     /* 同上：改用真实元素，箭头是内联 SVG */
-    .social-link[data-social="bilibili"] .social-link-cta {
+    /*
+     * 外链卡片的 OPEN PROFILE（2026-09-24 起 bilibili 和 X 共用同一套）：
+     * 桌面端悬停 / 键盘聚焦才浮现，手机端常驻（见下面 max-width: 800px 那两条）。
+     */
+    .social-link[data-social="bilibili"] .social-link-cta,
+    .social-link[data-social="x"] .social-link-cta {
       position: absolute;
       right: 1.2rem;
       bottom: 1.2rem;
@@ -2051,12 +2056,14 @@
       transform: translateY(.35rem);
       transition: opacity .22s ease, transform .22s ease;
     }
-        .social-link[data-social="bilibili"]:focus-visible .social-link-cta {
+        .social-link[data-social="bilibili"]:focus-visible .social-link-cta,
+        .social-link[data-social="x"]:focus-visible .social-link-cta {
     opacity: .9;
     transform: translateY(0);
     }
     @media (hover: hover) {
-      html:not(.is-touch-input):not(.is-scrolling) .social-link[data-social="bilibili"]:hover .social-link-cta {
+      html:not(.is-touch-input):not(.is-scrolling) .social-link[data-social="bilibili"]:hover .social-link-cta,
+      html:not(.is-touch-input):not(.is-scrolling) .social-link[data-social="x"]:hover .social-link-cta {
       opacity: .9;
       transform: translateY(0);
       }
@@ -2814,7 +2821,11 @@
       .social-link[data-social="bilibili"] {
         padding-bottom: 3.1rem;
       }
-      .social-link[data-social="bilibili"] .social-link-cta {
+      .social-link[data-social="x"] {
+        padding-bottom: 3.1rem;
+      }
+      .social-link[data-social="bilibili"] .social-link-cta,
+      .social-link[data-social="x"] .social-link-cta {
         right: 1.2rem;
         bottom: .95rem;
         opacity: .9;
@@ -3742,10 +3753,11 @@
               <strong>@锡尔维德</strong>
               <span class="social-link-cta" aria-hidden="true">OPEN PROFILE<svg class="arrow-ne" viewBox="0 0 12 12" focusable="false"><path d="M3.4 8.6 8.6 3.4M4.9 3.4h3.7v3.7"/></svg></span>
             </a>
-            <div class="social-link" data-social="x" role="group">
+            <a class="social-link" data-social="x" href="https://x.com/silvadelang" target="_blank" rel="noopener" aria-label="打开 X 个人主页">
               <span>X</span>
               <strong>@SilvadeLang</strong>
-            </div>
+              <span class="social-link-cta" aria-hidden="true">OPEN PROFILE<svg class="arrow-ne" viewBox="0 0 12 12" focusable="false"><path d="M3.4 8.6 8.6 3.4M4.9 3.4h3.7v3.7"/></svg></span>
+            </a>
             <div class="social-link" data-social="others" role="button" tabindex="0" aria-expanded="false" aria-controls="others-popover">
               <span>Others</span>
               <strong>Say hello<svg class="arrow-ne" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M3.4 8.6 8.6 3.4M4.9 3.4h3.7v3.7"/></svg></strong>
