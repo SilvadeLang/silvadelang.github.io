@@ -3825,7 +3825,7 @@
             <span>Designed for a quiet, blue-edged world.</span>
             <span class="footer-sign">
               <!-- 最近更新日期：以后每次改完站点顺手把这里改成当天（日/月/年） -->
-              <span>Last updated 24/09/2026 · v2.3</span>
+              <span>Last updated 25/09/2026 · v2.3</span>
               <!--
                 签名图（209KB PNG）的 src 交给脚本写：桌面端走图像加载闸门
                 （滚动期间不下载、停稳再补），手机端照旧 loading="lazy"。
@@ -3941,7 +3941,17 @@
         base: "assets/fursuit-gallery",
         sets: [
           { id: "set-01", title: "2026 Snapshots", count: 7 },
-          { id: "set-02", title: "2026 极兽聚", count: 24 },
+          {
+            id: "set-02",
+            title: "2026 极兽聚",
+            count: 25,
+            /*
+             * 只有第 4 张要单独取景：双人合影，第二层缩略图裁成 3:4 竖条时
+             * 按 40% 横位取景，锡尔维德和同框的朋友都完整落在画面里。
+             * 这一组没有画师 / 合委人，只写 focus —— 灯箱下面那行不会出现。
+             */
+            credits: [null, null, null, { focus: "40% 50%" }]
+          },
           /* count 为 0 表示还没放照片的占位相册：不可点开，也不会进目录 */
           { id: "set-03", title: "2026 HI FURRY", count: 0, comingSoon: true }
         ]
