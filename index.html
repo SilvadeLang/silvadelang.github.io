@@ -3825,7 +3825,7 @@
             <span>Designed for a quiet, blue-edged world.</span>
             <span class="footer-sign">
               <!-- 最近更新日期：以后每次改完站点顺手把这里改成当天（日/月/年） -->
-              <span>Last updated 25/09/2026 · v2.3</span>
+              <span>Last updated 26/09/2026 · v2.3</span>
               <!--
                 签名图（209KB PNG）的 src 交给脚本写：桌面端走图像加载闸门
                 （滚动期间不下载、停稳再补），手机端照旧 loading="lazy"。
@@ -3945,11 +3945,15 @@
             id: "set-02",
             title: "2026 极兽聚",
             count: 25,
+            /* 第一层封面用 04（双人合影），前面 3 张只进第二层 */
+            stackStart: 4,
             /*
-             * 只有第 4 张要单独取景：双人合影，第二层缩略图裁成 3:4 竖条时
-             * 按 58% 横位取景（可见约 25%–82%），锡尔维德和同框的朋友都完整落在画面里。
+             * 第 4 张两处都要取景：第二层缩略图裁成 3:4 竖条时按 58% 横位取景，
+             * 可见约 25%–82%，锡尔维德和同框的朋友都完整落在画面里；
+             * 第一层封面卡片更竖、裁得更少，同一个 58% 正好也把两人框住。
              * 这一组没有画师 / 合委人，只写 focus —— 灯箱下面那行不会出现。
              */
+            stackFocus: "58% 50%",
             credits: [null, null, null, { focus: "58% 50%" }]
           },
           /* count 为 0 表示还没放照片的占位相册：不可点开，也不会进目录 */
@@ -4026,9 +4030,13 @@
           {
             id: "silvade-3-0",
             title: "Silvade 3.0",
-            count: 4,
-            /* 堆叠固定 4 层，本组 4 张刚好填满 */
+            count: 5,
+            /* 第一层封面用 03（从 2.0 搬过来的那张，原本也是 2.0 的封面） */
+            stackStart: 3,
+            /* 堆叠固定 4 层：现在只有 03..05 三张可叠，最里面那层是灰框占位 */
             stackSlots: 4,
+            /* 封面（03）是胸像特写：桌面端卡片更扁，取景往下带一点，别把头顶切掉 */
+            stackFocusWide: "50% 36%",
             /*
              * 合委的多人图：第二层缩略图裁切时以锡尔维德（白色剑齿虎）为准，
              * focus 给的是他在画面里的位置，直接作为 object-position 使用。
@@ -4036,7 +4044,9 @@
             credits: [
               { artist: "Angry灰夜", commissioner: "Bolganoth", focus: "35% 50%" },
               { artist: "ALE55", focus: "80% 50%" },
-              /* 03 是水彩群像，往下带一点让戴草帽的锡尔维德居中 */
+              /* 03 是从 2.0 搬过来的（原 2.0 的 02，也是那边的封面） */
+              { artist: "Flunky", commissioner: "Karo" },
+              /* 04 是水彩群像，往下带一点让戴草帽的锡尔维德居中 */
               { artist: "Freddey", commissioner: "Henson", focus: "50% 100%" },
               { artist: "粹皓熊戌" }
             ]
@@ -4044,60 +4054,62 @@
           {
             id: "silvade-2-0",
             title: "Silvade 2.0",
-            count: 34,
-            /* 01 是超宽设定总表，不参与第一层堆叠，封面用 02 */
-            stackStart: 2,
-            /* 封面（02）是胸像特写：桌面端卡片更扁，取景往下带一点，别把头顶切掉 */
-            stackFocusWide: "50% 36%",
+            count: 33,
+            /* 01 是超宽设定总表，不参与第一层堆叠，封面用 04（野餐那张双人合影） */
+            stackStart: 4,
+            /*
+             * 封面（04）是双人合影：桌面端卡片更扁，横向会裁掉一部分——取景偏右一点、
+             * 宁可裁左边，左边的白虎和右边的黑衣朋友都能完整留在画面里。
+             */
+            stackFocusWide: "65% 50%",
             credits: [
               /*
                * 01 的缩略图本身就是从总表最右侧裁出来的那版立绘（2026-09-13 换的新图，
                * 645x1000），人物已经在正中，不用再偏移或放大，居中显示即可。
                */
               { artist: "小耶熊" },
-              { artist: "Flunky", commissioner: "Karo" },
-              /* 03 看右边的白虎 */
+              /* 02 看右边的白虎 */
               { artist: "Stardog", commissioner: "Karo", focus: "94% 50%" },
               /*
-               * 04 的缩略图本身就是人物特写（2026-09-12 换的新图，449x608，
+               * 03 的缩略图本身就是人物特写（2026-09-12 换的新图，449x608，
                * 和缩略图框比例几乎一致），所以不用再取景偏移、也不用再放大。
                */
               { artist: "柴壹", commissioner: "Castllon" },
-              /* 05 看左边的白虎 */
+              /* 04 看左边的白虎 */
               { artist: "Awaldkize", commissioner: "门先生", focus: "12% 50%" },
-              /* 06 看右边的白虎 */
+              /* 05 看右边的白虎 */
               { artist: "大菜叶子", commissioner: "Zane", focus: "95% 50%" },
-              /* 07 看右边的白虎：虎头正好落在中间 */
+              /* 06 看右边的白虎：虎头正好落在中间 */
               { artist: "鸠仔", commissioner: "Motto", focus: "84% 50%" },
               { artist: "Gosolo" },
-              /* 09 整体左移一点 */
+              /* 08 整体左移一点 */
               { artist: "野生糖霜蓝莓虎皮卷", focus: "62% 50%" },
               { artist: "卡仕达派" },
               { artist: "吗咯叭吇狗" },
               { artist: "生煎葱", commissioner: "Castllon" },
               { artist: "老夫肝儿有点疼" },
               { artist: "Ahappyface" },
-              /* 15 整体左移一点 */
+              /* 14 整体左移一点 */
               { artist: "毛茸茸的眼镜布", commissioner: "路易", focus: "62% 50%" },
-              /* 16 整体右移一点 */
+              /* 15 整体右移一点 */
               { artist: "鼻比beagle", commissioner: "焰狼", focus: "38% 50%" },
               { artist: "野生糖霜蓝莓虎皮卷", commissioner: "Castllon＆Henson" },
-              /* 18 整体右移一点 */
+              /* 17 整体右移一点 */
               { artist: "蓝狮ahadi", commissioner: "Castllon", focus: "38% 50%" },
               { artist: "泥土味" },
               { artist: "山禾烬" },
               { artist: "淮" },
-              /* 22-24 是新加的三张 */
-              /* 22 已经裁掉原图自带黑边，取景顶着左边（锡尔维德在左） */
+              /* 21-23 是新加的三张 */
+              /* 21 已经裁掉原图自带黑边，取景顶着左边（锡尔维德在左） */
               { artist: "柴壹", commissioner: "Castllon", focus: "0% 50%" },
               /*
-               * 23 是两张并排的横图：左边那只（银灰头发 + 天蓝挑染、蓝眼睛、蓝纹）才是锡尔维德，
+               * 22 是两张并排的横图：左边那只（银灰头发 + 天蓝挑染、蓝眼睛、蓝纹）才是锡尔维德，
                * 右边（白色头发 + 深蓝挑染、琥珀色眼睛）是合委人。取景按 58% 横位，两张脸都在画面里。
                */
               { artist: "小耶熊", commissioner: "Castllon", focus: "58% 50%" },
               { artist: "焰狼", commissioner: "焰狼" },
               { artist: "Cangbai" },
-              /* 26 整体左移一点 */
+              /* 25 整体左移一点 */
               { artist: "西瓜白蛋", focus: "62% 50%" },
               { artist: "空狼十七" },
               { artist: "雨木子" },
