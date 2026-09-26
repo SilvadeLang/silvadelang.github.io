@@ -3461,9 +3461,11 @@
         padding: 1rem;
       }
       /*
-       * 手机端：弹窗中文标题按配置断行（"远古冰原的 / 守望者"），英文标题不受影响。
+       * 手机端：弹窗中文标题按配置断行（"远古冰原的 / 守望者"），英文标题不走这套。
        * v2.2 起只竖屏断：横屏（哪怕还是手机版式）宽度够，一行放得下就一行。
+       * 英文里被标记的短语（Ancient Icefield）整段不许拆开，窄屏时一起换到下一行。
        */
+      .story-title-nowrap { white-space: nowrap; }
       @media (orientation: portrait) {
         .story-title-line { display: block; }
       }
@@ -3825,7 +3827,7 @@
             <span>Designed for a quiet, blue-edged world.</span>
             <span class="footer-sign">
               <!-- 最近更新日期：以后每次改完站点顺手把这里改成当天（日/月/年） -->
-              <span>Last updated 26/09/2026 · v2.3</span>
+              <span>Last updated 27/09/2026 · v2.3</span>
               <!--
                 签名图（209KB PNG）的 src 交给脚本写：桌面端走图像加载闸门
                 （滚动期间不下载、停稳再补），手机端照旧 loading="lazy"。
@@ -3857,7 +3859,7 @@
       <div class="story-dialog-header">
         <div>
           <p class="story-dialog-kicker">Hrosgaard / <span class="kicker-break">Northern Frontier</span></p>
-          <h2 id="story-dialog-title" data-story-title-zh="远古冰原的守望者" data-story-title-zh-break="远古冰原的" data-story-title-en="The Guardian of the Ancient Icefield">远古冰原的守望者</h2>
+          <h2 id="story-dialog-title" data-story-title-zh="远古冰原的守望者" data-story-title-zh-break="远古冰原的" data-story-title-en="The Guardian of the Ancient Icefield" data-story-title-en-nowrap="Ancient Icefield">远古冰原的守望者</h2>
         </div>
         <div class="story-actions">
           <button class="story-language" type="button" data-story-language><span class="lang-toggle-label" data-lang-label>ENGLISH</span></button>
@@ -4031,10 +4033,13 @@
             id: "silvade-3-0",
             title: "Silvade 3.0",
             count: 5,
-            /* 第一层封面用 03（从 2.0 搬过来的那张，原本也是 2.0 的封面） */
+            /*
+             * 第一层堆叠顺序：封面仍是 03（从 2.0 搬过来的那张），
+             * 后面三张依次用 01 / 02 / 04 —— 四层全是实图，不再补灰框占位。
+             * stackStart 仍留 3：让首图预取逻辑照常把 01 提前拉进缓存。
+             */
+            stackOrder: [3, 1, 2, 4],
             stackStart: 3,
-            /* 堆叠固定 4 层：现在只有 03..05 三张可叠，最里面那层是灰框占位 */
-            stackSlots: 4,
             /* 封面（03）是胸像特写：桌面端卡片更扁，取景往下带一点，别把头顶切掉 */
             stackFocusWide: "50% 36%",
             /*
@@ -4474,10 +4479,19 @@
             /*
              * stackStart：从第几张图开始参与第一层堆叠，默认 1。
              * 设为 2 时第一张图不进堆叠，封面直接用 02。
+             * stackOrder（可选）：直接列出堆叠要用的图片编号、第一项就是封面，
+             * 比如 [3, 1, 2, 4]；写了它就不再按 stackStart 往后连号取
+             * （3.0 用它把最里层的灰框换成实图，2026-09-27）。
              */
+            const stackOrder = Array.isArray(set.stackOrder)
+              ? set.stackOrder
+                  .map(Number)
+                  .filter((n) => Number.isInteger(n) && n >= 1 && n <= set.count)
+                  .slice(0, 4)
+              : [];
             const stackStart = Math.max(1, Math.min(set.count, Number(set.stackStart) || 1));
             const stackable = Math.max(1, set.count - stackStart + 1);
-            const covers = Math.max(1, Math.min(4, stackable));
+            const covers = stackOrder.length ? stackOrder.length : Math.max(1, Math.min(4, stackable));
             for (let depth = 0; depth < covers; depth += 1) {
               const image = document.createElement("img");
               /*
@@ -4485,7 +4499,7 @@
                * 保证"滚动 / 翻页动画期间一张新图都不开下"（见上面的图像加载闸门）。
                * 手机端没有翻页那一下，照旧立即写 src，行为和以前一模一样。
                */
-              const coverSrc = photoPath(set.id, stackStart + depth, "thumbs");
+              const coverSrc = photoPath(set.id, stackOrder.length ? stackOrder[depth] : stackStart + depth, "thumbs");
               if (desktopGalleryGate) queueCoverLoad(image, coverSrc);
               else image.src = coverSrc;
               image.alt = "";
@@ -7371,7 +7385,26 @@
               })
             );
           } else {
-            title.textContent = title.dataset[`storyTitle${language === "zh" ? "Zh" : "En"}`];
+            const enTitle = title.dataset.storyTitleEn || "";
+            const nowrap = title.dataset.storyTitleEnNowrap || "";
+            const nowrapAt = language === "en" && nowrap ? enTitle.indexOf(nowrap) : -1;
+            if (nowrapAt > -1) {
+              /*
+               * 英文标题里指定的一段不许拆行（"Ancient Icefield"）：
+               * 包进 nowrap 的 span，窄屏时整段一起换行，不会从中间断开。
+               */
+              const nowrapEnd = nowrapAt + nowrap.length;
+              title.replaceChildren(
+                document.createTextNode(enTitle.slice(0, nowrapAt)),
+                Object.assign(document.createElement("span"), {
+                  className: "story-title-nowrap",
+                  textContent: nowrap
+                }),
+                document.createTextNode(enTitle.slice(nowrapEnd))
+              );
+            } else {
+              title.textContent = title.dataset[`storyTitle${language === "zh" ? "Zh" : "En"}`];
+            }
           }
         }
       };
