@@ -3458,12 +3458,19 @@
         background-position: 71% center;
       }
       .story-dialog-header {
+        min-width: 0;
         padding: 1rem;
       }
       /*
+       * 英文标题 "the Ancient Icefield" 在窄屏要整段同行：
+       * 允许标题那一栏被压缩，第二行往右侧空白里探出去一点 ——
+       * 那行在按钮下方，既不压按钮，也不会被弹窗裁掉。
+       */
+      .story-dialog-header > div:first-child { min-width: 0; }
+      /*
        * 手机端：弹窗中文标题按配置断行（"远古冰原的 / 守望者"），英文标题不走这套。
        * v2.2 起只竖屏断：横屏（哪怕还是手机版式）宽度够，一行放得下就一行。
-       * 英文里被标记的短语（Ancient Icefield）整段不许拆开，窄屏时一起换到下一行。
+       * 英文里被标记的短语（the Ancient Icefield）整段不许拆开，窄屏时一起换到下一行。
        */
       .story-title-nowrap { white-space: nowrap; }
       @media (orientation: portrait) {
@@ -3859,7 +3866,7 @@
       <div class="story-dialog-header">
         <div>
           <p class="story-dialog-kicker">Hrosgaard / <span class="kicker-break">Northern Frontier</span></p>
-          <h2 id="story-dialog-title" data-story-title-zh="远古冰原的守望者" data-story-title-zh-break="远古冰原的" data-story-title-en="The Guardian of the Ancient Icefield" data-story-title-en-nowrap="Ancient Icefield">远古冰原的守望者</h2>
+          <h2 id="story-dialog-title" data-story-title-zh="远古冰原的守望者" data-story-title-zh-break="远古冰原的" data-story-title-en="The Guardian of the Ancient Icefield" data-story-title-en-nowrap="the Ancient Icefield">远古冰原的守望者</h2>
         </div>
         <div class="story-actions">
           <button class="story-language" type="button" data-story-language><span class="lang-toggle-label" data-lang-label>ENGLISH</span></button>
@@ -7390,8 +7397,9 @@
             const nowrapAt = language === "en" && nowrap ? enTitle.indexOf(nowrap) : -1;
             if (nowrapAt > -1) {
               /*
-               * 英文标题里指定的一段不许拆行（"Ancient Icefield"）：
-               * 包进 nowrap 的 span，窄屏时整段一起换行，不会从中间断开。
+               * 英文标题里指定的一段不许拆行（"the Ancient Icefield"）：
+               * 包进 nowrap 的 span，窄屏时整段一起换到下一行，不会从中间断开
+               * （手机档靠 header 的 min-width:0 让它往右侧空白里探出去一点）。
                */
               const nowrapEnd = nowrapAt + nowrap.length;
               title.replaceChildren(
