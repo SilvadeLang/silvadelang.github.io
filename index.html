@@ -3834,7 +3834,7 @@
             <span>Designed for a quiet, blue-edged world.</span>
             <span class="footer-sign">
               <!-- 最近更新日期：以后每次改完站点顺手把这里改成当天（日/月/年） -->
-              <span>Last updated 02/10/2026 · v2.3</span>
+              <span>Last updated 09/10/2026 · v2.3</span>
               <!--
                 签名图（209KB PNG）的 src 交给脚本写：桌面端走图像加载闸门
                 （滚动期间不下载、停稳再补），手机端照旧 loading="lazy"。
@@ -3970,17 +3970,31 @@
             credits: [null, null, null, { focus: "58% 50%" }]
           },
           /*
-           * HI FURRY 两张：封面用 02（单人照），01（大合影）作叠影并进第二层。
-           * 两张都是横图，裁成竖条时按 43% 横位取景——
-           * 02 单人居中；01 大合影里锡尔维德（蓝背带裤白剑齿虎）从中下偏左移到画面中央。
+           * HI FURRY 15 张：封面直接取 01（坐姿正面），后面按素材顺序 02–15 排。
+           * 12、14 是 10-09 之前的两张旧图（旧单人照、旧大合影），
+           * 这两张横图裁成竖条时按 43% 横位取景，其余先按默认居中。
            */
           {
             id: "set-03",
             title: "2026 HI FURRY",
-            count: 2,
-            stackOrder: [2, 1],
-            stackFocus: "43% 50%",
-            credits: [{ focus: "43% 50%" }, { focus: "43% 50%" }]
+            count: 15,
+            credits: [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              { focus: "43% 50%" },
+              null,
+              { focus: "43% 50%" },
+              null
+            ]
           }
         ]
       },
