@@ -3834,7 +3834,7 @@
             <span>Designed for a quiet, blue-edged world.</span>
             <span class="footer-sign">
               <!-- 最近更新日期：以后每次改完站点顺手把这里改成当天（日/月/年） -->
-              <span>Last updated 09/10/2026 · v2.3</span>
+              <span>Last updated 09/10/2026 · v2.4</span>
               <!--
                 签名图（209KB PNG）的 src 交给脚本写：桌面端走图像加载闸门
                 （滚动期间不下载、停稳再补），手机端照旧 loading="lazy"。
@@ -3980,9 +3980,11 @@
             count: 15,
             credits: [
               null,
+              /* 02 是舞台照，主体在画面右侧：取景靠右，别居中把人切了 */
+              { focus: "100% 50%" },
               null,
-              null,
-              null,
+              /* 04 是两人玩闹，主体偏左：取景靠左 */
+              { focus: "0% 50%" },
               null,
               null,
               null,
@@ -4882,6 +4884,36 @@
             if (budgetRowH > 0) width = Math.min(width, Math.max(budgetRowH * 0.75, 120));
           }
         }
+        /*
+         * 桌面端临界带（2026-10-09，v2.4）：
+         * 列宽是按 rail 高度算的，而水平滚动条一出现就吃掉一段 rail 高度，列宽跟着缩一点、
+         * 内容总宽也跟着缩；缩过临界点滚动条又消失，高度回来、内容再变宽……来回就是画面振荡。
+         * 只有"差一点点就能一屏放下"的相册才会落进这条带（明显放不下的内容两种高度下都溢出，是稳定的）。
+         * 处理办法：溢出不超"高度变化换算出来的宽度"时，把列宽压到刚好一屏放下，滚动条不再出现；
+         * 缩掉的每列不到一两像素，不影响观感。
+         */
+        if (!mobile) {
+          const count = rail.childElementCount;
+          const cols = Math.ceil(count / 2);
+          if (cols > 0) {
+            const columnGap = parseFloat(styles.columnGap || "0") || 0;
+            const paddingX =
+              (parseFloat(styles.paddingLeft || "0") || 0) +
+              (parseFloat(styles.paddingRight || "0") || 0);
+            const contentWidth = cols * width + (cols - 1) * columnGap + paddingX;
+            const overflow = contentWidth - rail.clientWidth;
+            /*
+             * 20px 是"水平滚动条可能吃掉的高度"上限（常见 15–17px，按宽一点算）。
+             * 这里刻意不实测 offsetHeight - clientHeight：滚动条在不在，这个差值自己就在 0 和十几
+             * 像素之间跳，拿它当判据等于把反馈源又接回去。固定值上限 20px → 溢出容差 = 20/2*0.75*列数。
+             */
+            const slack = (20 / 2) * 0.75 * cols;
+            if (overflow > 0 && overflow <= slack) {
+              const fit = (rail.clientWidth - paddingX - (cols - 1) * columnGap) / cols;
+              width = Math.max(96, Math.min(width, fit - 0.5));
+            }
+          }
+        }
         rail.style.setProperty("--gallery-tile-width", `${width}px`);
       };
 
@@ -5349,6 +5381,18 @@
         renderGalleryMeta(gallerySet, current, false);
       };
 
+      /*
+       * 箭头的灰/亮：以"还有没有能滚的余量"为准。
+       * 注意必须在 sizeGalleryTiles 之后再判一次 —— 列宽一改，scrollWidth 就变，
+       * 初进第二层时先用旧尺寸判出来的状态会不对（内容明明一屏放得下，右箭头却是亮的）。
+       */
+      const syncGalleryArrowState = (rail) => {
+        if (!rail) return;
+        const maxScroll = rail.scrollWidth - rail.clientWidth;
+        galleryPrev.disabled = rail.scrollLeft <= 2;
+        galleryNext.disabled = maxScroll <= 2 || rail.scrollLeft >= maxScroll - 2;
+      };
+
       const syncGalleryControls = () => {
         const rail = galleryRails[galleryLevel];
         if (!rail) return;
@@ -5356,15 +5400,13 @@
          * 滑动中只做"该跟着动"的那点事：两个箭头的亮/灰，以及灯箱的位置文本和
          * 下面那行画师 / 合委人（内容没变就不写 DOM）。缩略图列宽、总览高亮这种
          * 要重排或遍历整层的活儿，留到停稳那一次补。
-         */
+        */
         const moving = galleryMovingRails.has(rail);
-        const maxScroll = rail.scrollWidth - rail.clientWidth;
         /* 总览开着的时候，箭头归总览网格管，别被横排的滚动位置覆盖 */
         if (galleryOverviewOpen) {
           syncGalleryOverviewControls();
         } else {
-          galleryPrev.disabled = rail.scrollLeft <= 2;
-          galleryNext.disabled = maxScroll <= 2 || rail.scrollLeft >= maxScroll - 2;
+          syncGalleryArrowState(rail);
         }
         if (moving) {
           paintGalleryReadout(true);
@@ -5379,6 +5421,8 @@
          */
         paintGalleryReadout(false);
         sizeGalleryTiles();
+        /* 列宽重算后内容宽度可能变了：箭头的灰/亮按新尺寸再判一次 */
+        if (!galleryOverviewOpen) syncGalleryArrowState(rail);
         markGalleryOverviewCurrent();
         /* 已经停稳：把滑动中记住的列宽作废，下次重新量一次 */
         galleryStepMemoMap.delete(rail);
