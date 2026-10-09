@@ -2978,6 +2978,15 @@
         transition: none;
         will-change: transform;
       }
+      /*
+       * 横滑期间把每张画框各自提成一个合成层：逐帧写 scrollLeft 时，合成器只挪层的位置，
+       * 不再从左往右重新栅格化一遍（灯箱里都是 2200px 的大图，重新光栅化就是真机上
+       * 帧率上不去的头号原因）。.is-sliding 由 attachRailFling 挂上、停稳 900ms 后摘，
+       * 连着滑几下不用反复建层拆层。
+       */
+      .gallery-shell[data-level="detail"] .gallery-rail.is-sliding .gallery-slide-image {
+        transform: translate3d(0, 0, 0);
+      }
     }
 
     /*
@@ -3371,6 +3380,32 @@
       .gallery-shell[data-level="detail"] .gallery-slide-image {
         background: transparent;
         border-color: transparent;
+      }
+      /*
+       * 桌面（鼠标 / 触控板）灯箱：滚轮缩放 + 放大之后鼠标拖图。
+       * transform 交给 CSS 过渡，滚轮高频更新也顺滑；触摸端的过渡在
+       * (hover: none) 那段另有定义。光标提示"能拖 / 正在拖"。
+       */
+      @media (hover: hover) and (pointer: fine) {
+        .gallery-shell[data-level="detail"] .gallery-slide-image img {
+          transition: transform .22s cubic-bezier(.22, .8, .28, 1);
+          /* 放大后可以拖动：别让浏览器启动原生图片拖拽 / 文字选择抢手 */
+          -webkit-user-drag: none;
+          user-select: none;
+        }
+        /* 拖动进行中把过渡关掉，否则图片会慢半拍、像在拉橡皮筋 */
+        .gallery-shell[data-level="detail"] .gallery-slide-image img.is-pinching {
+          transition: none;
+        }
+        .gallery-shell[data-level="detail"] .gallery-slide.is-zoomed .gallery-slide-image,
+        .gallery-shell[data-level="detail"] .gallery-slide.is-zoomed .gallery-slide-image img {
+          cursor: grab;
+        }
+        .gallery-shell[data-level="detail"] .gallery-rail.is-drag-pan,
+        .gallery-shell[data-level="detail"] .gallery-rail.is-drag-pan .gallery-slide-image,
+        .gallery-shell[data-level="detail"] .gallery-rail.is-drag-pan .gallery-slide-image img {
+          cursor: grabbing;
+        }
       }
       .gallery-shell[data-level="detail"] .gallery-arrow {
         background: rgba(238, 243, 246, .12);
@@ -3834,7 +3869,7 @@
             <span>Designed for a quiet, blue-edged world.</span>
             <span class="footer-sign">
               <!-- 最近更新日期：以后每次改完站点顺手把这里改成当天（日/月/年） -->
-              <span>Last updated 09/10/2026 · v2.4</span>
+              <span>Last updated 10/10/2026 · v2.5</span>
               <!--
                 签名图（209KB PNG）的 src 交给脚本写：桌面端走图像加载闸门
                 （滚动期间不下载、停稳再补），手机端照旧 loading="lazy"。
@@ -3953,7 +3988,6 @@
       fursuit: {
         base: "assets/fursuit-gallery",
         sets: [
-          { id: "set-01", title: "2026 Snapshots", count: 7 },
           {
             id: "set-02",
             title: "2026 极兽聚",
@@ -3998,6 +4032,8 @@
               null
             ]
           },
+          /* Snapshots 现在排在第三位：极兽聚 / HI FURRY 各前移一位（2026-10-09）。 */
+          { id: "set-01", title: "2026 Snapshots", count: 7 },
           /*
            * 2026 冬兽聚：还没开展、没有素材，先用 count 0 的占位相册；
            * 第一层自动渲染成 "Coming soon" 虚框，不可点开、不进目录和第二层。
@@ -4011,7 +4047,7 @@
         /* 稿件不是照片，计数单位用 artworks（兽装页继续用 photos） */
         countLabel: "artworks",
         sets: [
-          /* 五个相册的固定顺序：动态壁纸 → 3.0 → 2.0 → Pancake＆Silvade → 1.0 */
+          /* 五个相册的固定顺序：动态壁纸 → 3.0 → Pancake＆Silvade → 2.0 → 1.0 */
           /* count 为 0 表示还没放照片的占位相册：不可点开，也不会进目录 */
           {
             id: "live-wallpapers",
@@ -4101,6 +4137,34 @@
             ]
           },
           {
+            id: "pancake",
+            title: "Pancake＆Silvade",
+            count: 10,
+            /* 第一张是四人设定长卷，不参与第一层堆叠，封面用 02 */
+            stackStart: 2,
+            /* 堆叠固定 4 层：现在是 02..05 四张 */
+            stackSlots: 4,
+            credits: [
+              /* 01 是超宽长卷，裁切时对准第三个（穿棒球夹克的）犬兽人 */
+              { artist: "小耶熊", focus: "62% 50%" },
+              /*
+               * 02..07 是 2026-09-12 从 Silvade 2.0 搬过来的六张
+               * （那边的旧编号 09/14/19/21/23/24），按要求只写画师、不写合委人。
+               */
+              { artist: "翌晨" },
+              { artist: "翌晨" },
+              { artist: "野生糖霜蓝莓虎皮卷" },
+              /* 05 整体右移一点 */
+              { artist: "漫鱼盖饭", focus: "38% 50%" },
+              { artist: "岁秩" },
+              { artist: "野生糖霜蓝莓虎皮卷" },
+              /* 08..10 是本来的 02/03/04 */
+              { artist: "空狼十七" },
+              { artist: "皮皮敖" },
+              { artist: "电磁脉冲" }
+            ]
+          },
+          {
             id: "silvade-2-0",
             title: "Silvade 2.0",
             count: 33,
@@ -4169,34 +4233,6 @@
               { artist: "白衣与卿" },
               { artist: "皮皮敖" },
               { artist: "赤色野犬" }
-            ]
-          },
-          {
-            id: "pancake",
-            title: "Pancake＆Silvade",
-            count: 10,
-            /* 第一张是四人设定长卷，不参与第一层堆叠，封面用 02 */
-            stackStart: 2,
-            /* 堆叠固定 4 层：现在是 02..05 四张 */
-            stackSlots: 4,
-            credits: [
-              /* 01 是超宽长卷，裁切时对准第三个（穿棒球夹克的）犬兽人 */
-              { artist: "小耶熊", focus: "62% 50%" },
-              /*
-               * 02..07 是 2026-09-12 从 Silvade 2.0 搬过来的六张
-               * （那边的旧编号 09/14/19/21/23/24），按要求只写画师、不写合委人。
-               */
-              { artist: "翌晨" },
-              { artist: "翌晨" },
-              { artist: "野生糖霜蓝莓虎皮卷" },
-              /* 05 整体右移一点 */
-              { artist: "漫鱼盖饭", focus: "38% 50%" },
-              { artist: "岁秩" },
-              { artist: "野生糖霜蓝莓虎皮卷" },
-              /* 08..10 是本来的 02/03/04 */
-              { artist: "空狼十七" },
-              { artist: "皮皮敖" },
-              { artist: "电磁脉冲" }
             ]
           },
           {
@@ -4343,6 +4379,8 @@
       let galleryLevel = "sets";
       /* 灯箱里被双指放大的图，离开灯箱时要复位；真正的实现在 attachSlideZoom 里 */
       let resetDetailZoom = () => {};
+      /* 灯箱缩放的对外接口：滚轮缩放、单击复位（桌面端用） */
+      let detailZoomApi = null;
       let galleryIndexOpen = false;
       let galleryOverviewOpen = false;
       let galleryAimTimer = 0;
@@ -4969,27 +5007,49 @@
        * 滑动停下之后，趁空闲把当前视口附近的几张先加载并解码好（只挑几张，
        * 不是整套），真正滑过去时就只剩合成，帧率会稳很多。
        */
-      const warmRailImages = (rail, ahead = 6) => {
+      const warmRailImages = (rail, ahead = 6, behind = 0) => {
         if (!rail || !rail.children.length) return;
         const idle = window.requestIdleCallback
-          || ((run) => window.setTimeout(() => run({ timeRemaining: () => 8 }), 140));
+          ? (run) => window.requestIdleCallback(run, { timeout: 400 })
+          : (run) => window.setTimeout(() => run({ timeRemaining: () => 8 }), 140);
         const center = rail.scrollLeft + rail.clientWidth / 2;
         const children = [...rail.children];
         let anchor = 0;
         children.forEach((child, index) => {
           if (child.offsetLeft - rail.offsetLeft <= center) anchor = index;
         });
-        const slice = children.slice(anchor, anchor + ahead);
-        idle(() => {
-          slice.forEach((child) => {
-            const image = child.querySelector("img");
-            if (!image || image.dataset.warmed) return;
+        /*
+         * behind：往回翻时前面那几张也要预热（灯箱里两个方向都常用）。
+         * 顺序按"离当前这张近的先来"排：前进方向优先，再往回补。
+         */
+        const queue = children
+          .slice(anchor, anchor + ahead)
+          .concat(children.slice(Math.max(0, anchor - behind), anchor).reverse());
+        /*
+         * 一次只解码一张、每张之间留一拍：8 张一口气 decode 会攒成一个长任务，
+         * 滑动刚停稳那一下正好被它顶掉（真机上就是"停下来顿一下"）。
+         */
+        const warmNext = () => {
+          if (!queue.length) return;
+          /*
+           * 横排还在惯性滑行 / 吸附动画里（is-panning 挂着）时整队让路：
+           * 解码会跟动画抢主线程，正在看的这一下反而卡。等停稳再继续，隔 120ms 探一次。
+           */
+          if (document.documentElement.classList.contains("is-panning")) {
+            window.setTimeout(warmNext, 120);
+            return;
+          }
+          const child = queue.shift();
+          const image = child.querySelector("img");
+          if (image && !image.dataset.warmed) {
             image.dataset.warmed = "1";
             /* lazy 的图不主动催它就不会开始下载，这几张改成立刻取 */
             image.loading = "eager";
             if (image.decode) image.decode().catch(() => {});
-          });
-        });
+          }
+          idle(warmNext);
+        };
+        idle(warmNext);
       };
       /*
        * 手机端横滑默认还是脚本驱动（跟手 1:1 + 自定义惯性）。
@@ -5022,6 +5082,7 @@
         let settleFrame = 0;
         let dragged = false;
         let suppressClickUntil = 0;
+        let willChangeTimer = 0;
         /*
          * 这一次手势只是"把还在滑的横排按住停下"，不是点击。
          * 见 onTouchStart 里的说明。
@@ -5041,8 +5102,16 @@
         const takeOver = () => {
           rail.style.scrollBehavior = "auto";
           rail.style.scrollSnapType = "none";
-          /* 提示合成器：这一段时间这个容器只会横向滚，别把它当普通重绘区 */
-          rail.style.willChange = "scroll-position";
+          /*
+           * 提示合成器：这一段时间这个容器只会横向滚，别把它当普通重绘区。
+           * 提升只在第一下滑动时做一次：连着滑几下的话，"撤掉再提升"会让每一滑
+           * 的开头重绘一次（release 里改成延迟撤）。
+           */
+          window.clearTimeout(willChangeTimer);
+          willChangeTimer = 0;
+          if (!rail.style.willChange) rail.style.willChange = "scroll-position";
+          /* 横滑期间给画框提层（见手机档那条 .is-sliding 规则） */
+          rail.classList.add("is-sliding");
           /*
            * 给根元素挂个"正在横滑"的标记，CSS 里趁这一下把几处跟着一起动的重效果
            * （堆叠的大阴影、箭头按钮的背景模糊）先关掉，滑完立刻恢复。
@@ -5054,7 +5123,16 @@
         const release = () => {
           rail.style.removeProperty("scroll-behavior");
           rail.style.removeProperty("scroll-snap-type");
-          rail.style.removeProperty("will-change");
+          /*
+           * 图层提升延后一点再撤：手指连着横滑时，两下之间不到一秒，
+           * 提升留着就不用每次都重新合成一遍。
+           */
+          window.clearTimeout(willChangeTimer);
+          willChangeTimer = window.setTimeout(() => {
+            willChangeTimer = 0;
+            rail.style.removeProperty("will-change");
+            rail.classList.remove("is-sliding");
+          }, 900);
           document.documentElement.classList.remove("is-panning");
           endGalleryMotion(rail);
           /* 停稳了，把位置文本 / 画师行 / 总览高亮按最终位置补一次 */
@@ -5090,8 +5168,8 @@
         const finish = () => {
           window.requestAnimationFrame(() => {
             release();
-            /* 停下来的空隙里先把前面几张解码好，下一次滑动更顺 */
-            warmRailImages(rail, STEP_MODE ? 3 : 6);
+            /* 停下来的空隙里先把前后几张解码好，下一次滑动更顺 */
+            warmRailImages(rail, STEP_MODE ? 5 : 6, STEP_MODE ? 3 : 0);
           });
         };
 
@@ -5303,6 +5381,8 @@
             if (velocity > MIN_FLING || moved > step * .3) direction = 1;
             else if (velocity < -MIN_FLING || moved < -step * .3) direction = -1;
             const target = Math.min(points.length - 1, Math.max(0, origin + direction));
+            /* 吸附动画这 0.4 秒里顺手把目标附近催一下，下一次滑过去就是热的 */
+            warmRailImages(rail, 5, 3);
             animateScrollTo(points[target]);
             return;
           }
@@ -5354,6 +5434,19 @@
         if (step > 0) galleryStepMemoMap.set(rail, step);
         return step;
       };
+      /*
+       * 滑动中箭头每帧都要判"还有没有余量"，而 scrollWidth / clientWidth 是布局属性，
+       * 每帧读一次在 iOS 上就是每帧一次强制重排。一次横滑里布局不会变，量一次记住，
+       * 跟列宽 memo 一起在停稳后作废。
+       */
+      const galleryMaxScrollMemoMap = new Map();
+      const memoMaxScroll = (rail) => {
+        const cached = galleryMaxScrollMemoMap.get(rail);
+        if (cached !== undefined) return cached;
+        const value = Math.max(0, rail.scrollWidth - rail.clientWidth);
+        galleryMaxScrollMemoMap.set(rail, value);
+        return value;
+      };
       const galleryIndexQuick = (rail) => {
         const step = memoGalleryStep(rail);
         if (!step) return 1;
@@ -5394,7 +5487,9 @@
        */
       const syncGalleryArrowState = (rail) => {
         if (!rail) return;
-        const maxScroll = rail.scrollWidth - rail.clientWidth;
+        const maxScroll = galleryMovingRails.has(rail)
+          ? memoMaxScroll(rail)
+          : Math.max(0, rail.scrollWidth - rail.clientWidth);
         galleryPrev.disabled = rail.scrollLeft <= 2;
         galleryNext.disabled = maxScroll <= 2 || rail.scrollLeft >= maxScroll - 2;
       };
@@ -5432,6 +5527,7 @@
         markGalleryOverviewCurrent();
         /* 已经停稳：把滑动中记住的列宽作废，下次重新量一次 */
         galleryStepMemoMap.delete(rail);
+        galleryMaxScrollMemoMap.delete(rail);
       };
 
       /*
@@ -5639,8 +5735,8 @@
             syncWallFit();
             window.setTimeout(syncWallFit, 620);
           }
-          /* 这一层刚显示出来，先把头几张解码好，第一下横滑就不会卡 */
-          warmRailImages(galleryRails[level], level === "detail" ? 3 : 6);
+          /* 这一层刚显示出来，先把前后几张解码好，第一下横滑就不会卡 */
+          warmRailImages(galleryRails[level], level === "detail" ? 5 : 6, level === "detail" ? 3 : 0);
           /* 转屏位置保持的参考物跟着换层重记（进 / 出灯箱后立刻转屏也不会拿旧锚点） */
           window.silvadeRememberRotationAnchor?.();
           /*
@@ -5813,6 +5909,8 @@
           image.alt = `${set.title} · 第 ${index} 张`;
           image.loading = "lazy";
           image.decoding = "async";
+          /* 灯箱里放大后要支持鼠标拖动，别让原生图片拖拽插一脚 */
+          image.draggable = false;
           frame.append(image);
           slide.append(frame);
           /*
@@ -6063,10 +6161,20 @@
       gallerySection.addEventListener("click", (event) => {
         if (galleryLevel !== "detail") return;
         if (event.target.closest("button, a")) return;
+        /* 桌面鼠标刚拖完图：这一下是拖动的收尾，别当成单击复位 / 点填边退回 */
+        if (detailZoomApi && detailZoomApi.consumeDragClick()) return;
         const image = event.target.closest("img");
         if (image) {
-          /* 点在画面上 → 无操作；点在画外的填边 → 继续往下走，退回第二层 */
-          if (isPointOnArtwork(image, event)) return;
+          /*
+           * 点在画面上：正被滚轮缩放着就先缩回原大小（和手机端单击复位一致），
+           * 已经是原大小则无操作；点在画外的填边 → 继续往下走，退回第二层。
+           */
+          if (isPointOnArtwork(image, event)) {
+            if (detailZoomApi && detailZoomApi.zoomOutIfZoomed(image.closest(".gallery-slide"))) {
+              return;
+            }
+            return;
+          }
         } else if (event.target.closest(".gallery-controls, .gallery-slide-meta")) {
           /* 底部状态行（.gallery-controls 是它的外框）和画师 / 合委人那行字同样无操作 */
           return;
@@ -6145,6 +6253,24 @@
           nudgeGalleryIndexScroll(event.deltaY * unit);
           event.stopPropagation();
           return;
+        }
+        /*
+         * 第三层灯箱：滚轮 = 放大图片（100%–250%，只放大不缩小），吃掉事件不让它冒泡去翻页。
+         * 指针落在暗底 / 状态行上时，自动作用于当前居中的那张，不用精确瞄准图片。
+         * 只有"纵向分量占主"的滚轮才缩放：触控板纯横滑仍留给这一层横排翻图，
+         * 否则横滑翻图会被缩放整个吃掉（2026-10-09 补）。
+         */
+        if (
+          galleryLevel === "detail" &&
+          detailZoomApi &&
+          Math.abs(event.deltaY) >= Math.abs(event.deltaX)
+        ) {
+          const slide = detailZoomApi.slideFor(event.target);
+          if (slide && detailZoomApi.zoomByWheel(slide, event)) {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
         }
       if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) event.stopPropagation();
       }, { passive: false });
@@ -6494,23 +6620,11 @@
        * 2026-09-23：整批一帧画完 → 改成一次 4 张分批画，且页面在动时停手（见下面的 paintBatch）。
        */
       let galleryWarmDone = false;
-      const warmGalleryCovers = (allowPartial) => {
-        if (galleryWarmDone || document.querySelector(".gallery-warm")) return true;
-        if (window.matchMedia("(max-width: 800px)").matches) { galleryWarmDone = true; return true; }
-        /*
-         * 页面正在动就整批不画（返回 false，外层 kick 会稍后再来一次）。
-         * 2026-09-23：这一批十几张封面原来是一帧里全画上去的，显存上传全挤在那一帧，
-         * 正好撞上用户的第一下滚动，就是那次"突变式掉帧"。
-         */
-        if (pageIsMoving()) return false;
-        const vh = window.innerHeight || 0;
-        /*
-         * 已经翻到委托页（或更后面）就别干了：那一页的封面马上要自己画出来，
-         * 再复制一份纯属白占显存。
-         * （这条以前写的是"离开首页就不干"，启动时机挪到故事页之后就得改判据。）
-         */
-        const worksTop = (document.getElementById("works")?.getBoundingClientRect().top ?? 0) + window.scrollY;
-        if (Number.isFinite(worksTop) && window.scrollY > worksTop - vh * .5) { galleryWarmDone = true; return true; }
+      /*
+       * 收集要预热的封面副本 —— 初次预热（warmGalleryCovers）和停留保活重画共用。
+       * 只收已经就位的图；还没就位的记在 pending 里，由调用方决定"再等等"。
+       */
+      const collectWarmCovers = () => {
         const covers = [];
         let maxW = 0;
         let maxH = 0;
@@ -6540,21 +6654,20 @@
           maxH = Math.max(maxH, rect.height);
           covers.push(clone);
         });
-        if (pending && !allowPartial) return false;
-        if (covers.length < 4) return false;
-        galleryWarmDone = true;
-        window.__galleryWarm = { at: Math.round(performance.now()), painted: covers.length, sizes: [Math.round(maxW), Math.round(maxH)] };
+        return { covers, maxW, maxH, pending };
+      };
+      /*
+       * 把一批副本画进隐形层：一次 4 张、中间隔一帧，把"上传显存"这活儿摊开。
+       * 画的过程中用户开滚就先停手（反正这层是 0.4% 透明，看不见），
+       * 等页面静止了接着画；全画完再停 560ms 撤掉。
+       */
+      const paintWarmCovers = ({ covers, maxW, maxH }) => {
         const box = document.createElement("div");
         box.className = "gallery-warm";
         box.setAttribute("aria-hidden", "true");
         box.style.width = Math.ceil(maxW) + "px";
         box.style.height = Math.ceil(maxH) + "px";
         document.body.append(box);
-        /*
-         * 分批画：一次 4 张、中间隔一帧，把"上传显存"这活儿摊开。
-         * 画的过程中用户开滚就先停手（反正这层是 0.4% 透明，看不见），
-         * 等页面静止了接着画；全画完再停 560ms 撤掉。
-         */
         let cursor = 0;
         const paintBatch = () => {
           if (!box.isConnected) return;
@@ -6566,6 +6679,32 @@
           window.setTimeout(() => box.remove(), 560);
         };
         window.requestAnimationFrame(paintBatch);
+      };
+      const warmGalleryCovers = (allowPartial) => {
+        if (galleryWarmDone || document.querySelector(".gallery-warm")) return true;
+        if (window.matchMedia("(max-width: 800px)").matches) { galleryWarmDone = true; return true; }
+        /*
+         * 页面正在动就整批不画（返回 false，外层 kick 会稍后再来一次）。
+         * 2026-09-23：这一批十几张封面原来是一帧里全画上去的，显存上传全挤在那一帧，
+         * 正好撞上用户的第一下滚动，就是那次"突变式掉帧"。
+         */
+        if (pageIsMoving()) return false;
+        const vh = window.innerHeight || 0;
+        /*
+         * 已经翻到委托页（或更后面）就别干了：那一页的封面马上要自己画出来，
+         * 再复制一份纯属白占显存。
+         * （这条以前写的是"离开首页就不干"，启动时机挪到故事页之后就得改判据。）
+         */
+        const worksTop = (document.getElementById("works")?.getBoundingClientRect().top ?? 0) + window.scrollY;
+        if (Number.isFinite(worksTop) && window.scrollY > worksTop - vh * .5) { galleryWarmDone = true; return true; }
+        const { covers, maxW, maxH, pending } = collectWarmCovers();
+        if (pending && !allowPartial) return false;
+        if (covers.length < 4) return false;
+        galleryWarmDone = true;
+        window.__galleryWarm = { at: Math.round(performance.now()), painted: covers.length, sizes: [Math.round(maxW), Math.round(maxH)] };
+        paintWarmCovers({ covers, maxW, maxH });
+        /* 预热完成 —— 从这里开始盯"停留过久被浏览器回收"，见下面的停留保活 */
+        scheduleRestWarm(REST_WARM_IDLE_MS);
         return true;
       };
       (() => {
@@ -6592,6 +6731,100 @@
           if (Number(event.detail) >= 1) window.setTimeout(kick, 260);
         });
       })();
+      /* ---------- 停留保活（2026-10-09，v2.5 第四轮） ---------- */
+      /*
+       * 用户实测："在界面停留几分钟，翻到委托 / 兽装页时动画卡顿复现。"
+       * 这是 v2.3 修的"刷新后第一次翻页掉帧"的另一种触发方式：页面长时间静止时，
+       * 浏览器会把图像解码缓存、合成好的纹理悄悄回收；再翻页那一下又要现场
+       * 解码 + 上传显存，掉帧就复现了。
+       *
+       * 这里在静止停留满 REST_WARM_IDLE_MS（默认 45 秒）后做一轮廉价的"保活"，
+       * 之后每 REST_WARM_GAP_MS（2 分钟）一轮，直到用户真的翻到委托页：
+       *   ① 把两层封面里已加载的图逐张 decode() 一遍 —— 已经热的图是 no-op，
+       *      被回收的就在这里悄悄补回来（代价避开用户翻页那一下）；
+       *   ② 把隐形预热层重画一遍 —— 把合成纹理重新传上去。
+       * 全部发生在空闲时段；一有滚动 / 动画就让路，手机端和"已经翻过去"都不参与。
+       * 切回前台（visibilitychange）也会补一轮 —— 后台待过几分钟正是最容易被回收的时刻。
+       *
+       * 调试参数：URL 加 ?restwarm=<毫秒> 可改"静止判定的时长"（生产环境别用）。
+       */
+      const REST_WARM_IDLE_MS =
+        Number(new URLSearchParams(window.location.search).get("restwarm")) || 45000;
+      const REST_WARM_GAP_MS = 120000;
+      let restWarmTimer = 0;
+      let lastRestMotionAt = performance.now();
+      window.__restWarm = { rounds: 0, lastAt: 0, decoded: 0, painted: 0 };
+      const noteRestMotion = () => { lastRestMotionAt = performance.now(); };
+      ["scroll", "wheel", "touchstart", "pointerdown", "keydown"].forEach((name) => {
+        window.addEventListener(name, noteRestMotion, { passive: true });
+      });
+      /* 已经翻到委托页（或更后面）就不需要保活了：那些图处于"正在用"，浏览器自己会热着 */
+      const restWarmPastWorks = () => {
+        const works = document.getElementById("works");
+        if (!works) return false;
+        const vh = window.innerHeight || 0;
+        const worksTop = works.getBoundingClientRect().top + window.scrollY;
+        return Number.isFinite(worksTop) && window.scrollY > worksTop - vh * .5;
+      };
+      /* ② 把隐形预热层重画一遍（材料是 collectWarmCovers 现收的副本） */
+      const paintRestWarmLayer = () => {
+        if (document.querySelector(".gallery-warm")) return;
+        const { covers, maxW, maxH, pending } = collectWarmCovers();
+        if (pending || covers.length < 4) return;   /* 还有没就位的就不画，等下一轮 */
+        paintWarmCovers({ covers, maxW, maxH });
+        window.__restWarm.painted += 1;
+      };
+      const keepGalleryWarmAlive = () => {
+        const idle = window.requestIdleCallback
+          ? (run) => window.requestIdleCallback(run, { timeout: 500 })
+          : (run) => window.setTimeout(() => run({ timeRemaining: () => 8 }), 160);
+        window.__restWarm.rounds += 1;
+        window.__restWarm.lastAt = Math.round(performance.now());
+        /*
+         * ① 重新解码：只认已经加载过的（没加载的仍归图像闸门管，这里不催下载）。
+         * 逐张、走空闲，别攒成一个长任务。
+         */
+        const list = [...document.querySelectorAll(".gallery-shell img")].filter(
+          (image) => image.complete && image.naturalWidth
+        );
+        const signature = document.querySelector(".footer-signature");
+        if (signature && signature.complete && signature.naturalWidth) list.push(signature);
+        let index = 0;
+        const step = () => {
+          /* 中途页面动起来 / 已经翻过去了，本轮放弃（下一轮再来） */
+          if (document.hidden || pageIsMoving() || restWarmPastWorks()) return;
+          const image = list[index];
+          index += 1;
+          if (image && typeof image.decode === "function") {
+            image.decode().catch(() => {});
+            window.__restWarm.decoded += 1;
+          }
+          if (index < list.length) idle(step);
+          else paintRestWarmLayer();             /* ② 解完码再重画预热层 */
+        };
+        idle(step);
+      };
+      const scheduleRestWarm = (delay = REST_WARM_IDLE_MS) => {
+        window.clearTimeout(restWarmTimer);
+        restWarmTimer = window.setTimeout(runRestWarm, delay);
+      };
+      const runRestWarm = () => {
+        restWarmTimer = 0;
+        if (!desktopGalleryGate) return;                       /* 手机端不做这套 */
+        if (!galleryWarmDone) { scheduleRestWarm(15000); return; }  /* 预热还没跑完，等等再看 */
+        if (restWarmPastWorks()) return;                       /* 已经翻过去，收摊 */
+        if (document.hidden) { scheduleRestWarm(30000); return; }
+        if (pageIsMoving() || performance.now() - lastRestMotionAt < REST_WARM_IDLE_MS) {
+          scheduleRestWarm(15000);                             /* 页面还在动 / 刚动过，稍后再看 */
+          return;
+        }
+        keepGalleryWarmAlive();
+        scheduleRestWarm(REST_WARM_GAP_MS);
+      };
+      document.addEventListener("visibilitychange", () => {
+        /* 切回前台补一轮：后台待几分钟正是最容易把缓存放掉的时刻 */
+        if (!document.hidden) scheduleRestWarm(1500);
+      });
       /*
        * 第三层灯箱的双指缩放：只放大图片本身，页面和 UI 都不跟着变大。
        * 以前手机上双指放大走的是浏览器整页缩放，iPad 上会把整套界面一起放大，
@@ -6607,11 +6840,21 @@
        *   4) 手指事件的频率比屏幕刷新高，改成每帧只写一次 transform。
        */
       const attachSlideZoom = (rail) => {
-        if (!rail) return () => {};
+        if (!rail) return null;
         const MAX_SCALE = 4;
+        /*
+         * 桌面滚轮缩放范围：100%–250%（只能放大、不能缩小）。
+         * 触摸双指仍是 1–4 倍，两边互不影响。
+         */
+        const WHEEL_MIN_SCALE = 1;
+        const WHEEL_MAX_SCALE = 2.5;
         const states = new WeakMap();
         let pinch = null;
         let pan = null;
+        /* 桌面鼠标拖动（放大后平移图片）这条线的状态 */
+        let mousePan = null;
+        let dragEndAt = 0;
+        let dragEndSwallow = false;
         let zoomedSlide = null;
         let settleTimer = 0;
         let gestureDriven = false;
@@ -6722,6 +6965,19 @@
           delete rail.dataset.zoomed;
           delete rail.dataset.zoomPan;
         };
+        /*
+         * 单击图片时调用：这张图只要偏离 100%（放大或缩小）就先缩回原大小，
+         * 返回 true 表示已经处理；已经是原大小返回 false，交给原来的点击逻辑。
+         */
+        const zoomOutIfZoomed = (slide) => {
+          if (!slide || !states.has(slide)) return false;
+          const state = stateOf(slide);
+          const changed =
+            Math.abs(state.scale - 1) > .01 || Math.abs(state.x) > .5 || Math.abs(state.y) > .5;
+          if (!changed) return false;
+          resetSlide(slide, true);
+          return true;
+        };
         const slideUnder = (target) => (target instanceof Element ? target.closest(".gallery-slide") : null);
         const onFrame = (target) => (target instanceof Element ? !!target.closest(".gallery-slide-image") : false);
         /* 手指落在暗底上（没落在图上）时，认当前居中的那一张 */
@@ -6792,6 +7048,48 @@
           pinch = null;
           queued = null;
           if (stateOf(slide).scale < 1.08) resetSlide(slide, true);
+        };
+        /*
+         * 桌面滚轮缩放：范围 100%–250%，围绕指针位置缩放；只放大、不缩小。
+         * 滚轮事件比屏幕刷新密：这里只更新目标值，真正写 transform 时让 CSS 过渡
+         * 把它顺滑带过去；连续滚轮不会丢状态，只是不断改写目标。
+         */
+        const zoomByWheel = (slide, event) => {
+          if (!slide) return false;
+          const box = boxOf(slide);
+          if (!box) return false;
+          const state = box.state;
+          const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
+          const delta = event.deltaY * unit;
+          if (!delta) return true;
+          const next = Math.min(
+            WHEEL_MAX_SCALE,
+            Math.max(WHEEL_MIN_SCALE, state.scale * Math.exp(-delta * .0016))
+          );
+          if (Math.abs(next - state.scale) < .0005) return true;
+          /* 指针不在取景框里时把锚点收进框内，免得图被一滚带飞 */
+          const anchorClientX = Math.min(
+            box.cx + box.frameW / 2,
+            Math.max(box.cx - box.frameW / 2, event.clientX)
+          );
+          const anchorClientY = Math.min(
+            box.cy + box.frameH / 2,
+            Math.max(box.cy - box.frameH / 2, event.clientY)
+          );
+          /* 以指针位置为锚点：指针下的像素缩放前后保持不动 */
+          const anchorX = (anchorClientX - box.cx - state.x) / state.scale;
+          const anchorY = (anchorClientY - box.cy - state.y) / state.scale;
+          state.scale = next;
+          state.x = (anchorClientX - box.cx) - anchorX * next;
+          state.y = (anchorClientY - box.cy) - anchorY * next;
+          /* 回 100% 就居中，不留残余位移 */
+          if (Math.abs(next - 1) < .01) {
+            state.x = 0;
+            state.y = 0;
+          }
+          clampState(state, box);
+          paint(slide, true);
+          return true;
         };
         /* 放大之后单指拖动 = 平移图片 */
         const beginPan = (slide, touch, fromPinch) => {
@@ -6885,6 +7183,70 @@
           delete rail.dataset.zoomPan;
         }, { passive: true });
 
+        /*
+         * 桌面鼠标：图放大之后按住拖动 = 平移，和手机单指拖图共用同一套限位。
+         * 100% 时不接管（那一下还是"单击复位 / 点填边退回"的老逻辑）；
+         * 触摸设备走上面那条 touch 线，这里只认 pointerType: "mouse"。
+         */
+        const endMousePan = (event) => {
+          if (!mousePan) return;
+          if (event && event.pointerId !== mousePan.pointerId) return;
+          dragEndAt = performance.now();
+          dragEndSwallow = mousePan.captured;
+          mousePan = null;
+          rail.classList.remove("is-drag-pan");
+        };
+        rail.addEventListener("pointerdown", (event) => {
+          if (event.pointerType !== "mouse" || event.button !== 0) return;
+          if (!zoomedSlide || !onFrame(event.target)) return;
+          const state = stateOf(zoomedSlide);
+          mousePan = {
+            slide: zoomedSlide,
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            baseX: state.x,
+            baseY: state.y,
+            moved: 0,
+            captured: false
+          };
+        });
+        rail.addEventListener("pointermove", (event) => {
+          if (!mousePan || event.pointerId !== mousePan.pointerId) return;
+          const dx = event.clientX - mousePan.startX;
+          const dy = event.clientY - mousePan.startY;
+          mousePan.moved = Math.max(mousePan.moved, Math.hypot(dx, dy));
+          /*
+           * 指针捕获推迟到"确实在拖"（>8px）才做：捕获会把收尾 click 的 target
+           * 变成 rail，单击复位 / 点填边退回就全失效了。8px 和手机端单指拖动同一道坎。
+           */
+          if (!mousePan.captured) {
+            if (mousePan.moved <= 8) return;
+            mousePan.captured = true;
+            try { rail.setPointerCapture(event.pointerId); } catch (err) { /* 忽略 */ }
+            rail.classList.add("is-drag-pan");
+          }
+          const box = boxOf(mousePan.slide);
+          if (!box) return;
+          box.state.x = mousePan.baseX + dx;
+          box.state.y = mousePan.baseY + dy;
+          clampState(box.state, box);
+          paint(mousePan.slide, false);
+          event.preventDefault();
+        });
+        rail.addEventListener("pointerup", endMousePan);
+        rail.addEventListener("pointercancel", endMousePan);
+        /*
+         * 拖动收尾时浏览器还会补一次 click（按下 / 抬起都落在图上）：
+         * 那一下不是"单击复位"，交给 gallerySection 的点击逻辑吞掉。
+         * 只有真的拖动过（>6px）而且刚结束（350ms 内）才算。
+         */
+        const consumeDragClick = () => {
+          const swallow = dragEndSwallow;
+          dragEndSwallow = false;
+          return swallow && performance.now() - dragEndAt < 350;
+        };
+
         /* 滑到下一张（箭头或甩动）时，把上一张的放大状态收掉 */
         rail.addEventListener("scroll", () => {
           if (!zoomedSlide || pinch || pan) return;
@@ -6901,7 +7263,7 @@
           }, 200);
         }, { passive: true });
 
-        return resetAll;
+        return { resetAll, zoomByWheel, zoomOutIfZoomed, consumeDragClick, slideFor };
       };
 
       /*
@@ -6910,7 +7272,8 @@
        * 桌面端不受影响。
        */
       /* 缩放要先挂：它得先一步把"整页缩放"拦下来，横滑再让位 */
-      resetDetailZoom = attachSlideZoom(galleryRails.detail) || (() => {});
+      detailZoomApi = attachSlideZoom(galleryRails.detail);
+      resetDetailZoom = detailZoomApi ? detailZoomApi.resetAll : () => {};
       [
         [galleryRails.sets, "free"],
         [galleryRails.grid, "free"],

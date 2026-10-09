@@ -1,7 +1,7 @@
 # 版本更新说明 / Version History
 
-当前版本 / Current version：**261009（v2.4）**
-最后更新 / Last updated：2026-10-09
+当前版本 / Current version：**261010（v2.5）**
+最后更新 / Last updated：2026-10-10
 
 | 版本 Version | 日期 Date | 更新内容 / What's new |
 | --- | --- | --- |
@@ -14,6 +14,7 @@
 | 260919（v2.2） | 2026-09-19 | 修复了手机翻转至横屏时灯箱过小的问题，修复了鼠标板一次翻页过多的问题。<br>*Fixed the lightbox shrinking to a sliver when a phone is rotated to landscape, and the trackpad flipping several pages in one swipe.* |
 | 260924（v2.3） | 2026-09-24 | 提升了桌面端翻页流畅度。<br>*Improved page-turning smoothness on desktop.* |
 | 261009（v2.4） | 2026-10-09 | 修复了临界列宽下，滚动条显隐导致画面振荡的问题。<br>*Fixed screen jitter caused by the scrollbar appearing and disappearing at a critical column width.* |
+| 261010（v2.5） | 2026-10-10 | 桌面端增加灯箱内滚轮缩放功能。<br>*Added wheel zoom inside the lightbox on desktop.* |
 
 ---
 
